@@ -1,12 +1,11 @@
 Package: soundlocalization
-Title: What the Package Does (One Line, Title Case)
+Title: Isolate and Localize Sound from Simultaneous Recordings
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Luciano", "Moffatt", , "lmoffatt@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-4994-4304"))
+Description: This package allow to load, align, separate in portions and isolate and localize in space sounds from the environment with emphasis in birds and frogs. 
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.0
