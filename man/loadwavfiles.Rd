@@ -15,3 +15,9 @@ a list of wave objects
 \description{
 Load several wav files at once
 }
+\examples{
+files<-list("~/papers/ranas/recordings/venezuela 0/Grabacion_3_luciano.wav")
+d<-loadwavfiles(files)
+
+
+}

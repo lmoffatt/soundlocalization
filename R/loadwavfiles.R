@@ -6,10 +6,11 @@
 #' @export
 #'
 #' @examples
-#'
+#' files<-list("~/papers/ranas/recordings/venezuela 0/Grabacion_3_luciano.wav")
+#' d<-loadwavfiles(files)
 #'
 #'
 loadwavfiles<-function(fileList)
 {
-   lapply(fileList,readWave)
+   lapply(fileList,tuneR::readWave)
 }
