@@ -1,0 +1,104 @@
+---
+title: "soundlocalization"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{soundlocalization}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(soundlocalization)
+```
+
+The purpose of this package is to provide tools for isolating and localizing the source of sounds from an array of microphones, not necessary in a regular order. 
+
+The first step is to list the files to be analyzed
+
+```{r}
+files<-list(
+ system.file("extdata", "Grabacion_2_andrea.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_1_joaco.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_1_cande.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_3_luciano.wav", package = "soundlocalization")
+ )
+ signal<-loadwavfiles(files)
+
+```
+
+Lets see the organization of signal
+```{r}
+str(signal)
+```
+We see that it is comprised by a list of two subojects: 
+ meta_data, a data.frame with information on the directory, filename, number of samples, a boolean indicating if the recording was stereo, the frequency of sampling, the number of bits and if the pcm is complied. 
+
+signal: a list of integer vectors of different sizes. 
+
+Now, if we want to do a fourier transform, we better use the same number of samples. So we need to homogeneize their size. 
+We build a function exactly for that purpose. 
+
+```{r}
+i_same_length=indexes_for_same_length(signal)
+str(i_same_length)
+```
+
+we see that the output of this function is a list of two integer vectors: i_start and i_end. We see that the i_end[1] is equal to the size of the first signal, the idea is that by applying those indexes we obtain recordings of the same length. 
+
+For this purpose we use another helper function
+```{r}
+apply_indexes(signal,i_same_length)->e_signal
+str(e_signal)
+```
+we see that the output contains the indexes for start and end and a long matrix with the truncated signal 
+
+
+Now, we need to apply a hanning window to avoid artifacts from the fft. 
+```{r}
+h_signal=apply_hanning_window(e_signal)
+str(h_signal)
+```
+
+
+
+Now we are ready to calculate the fourier transforms
+
+```{r}
+f_signal=calculate_ffts(h_signal)
+str(f_signal)
+```
+
+
+
+
+now we can calculate the crosscorrelations between the recordings, so we can come up close to be able to align them
+```{r}
+ccf_signal=calculate_list_of_cross_correlations(f_signal)
+str(ccf_signal)  
+```
+
+now, lets find out the lags
+
+```{r}
+max_ccf=max_lag_ccf(ccf_signal)
+str(max_ccf)
+```
+```{r}
+calc_lag_ccf(max_ccf )->maxs_ccf
+str(maxs_ccf)
+maxs_ccf$max_lag_by_row
+```
+now we can optimize the lags to find the better combination
+```{r}
+optimize_delays_from_ccf(maxs_ccf)->opt_ccf
+opt_ccf
+```
+
+
