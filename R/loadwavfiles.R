@@ -15,17 +15,51 @@
 #' waveList<-loadwavfiles(files)
 #'
 #'
-loadwavfiles<-function(fileList)
+loadwavfiles <- function(fileList)
 {
-   lapply(fileList,tuneR::readWave)->l
-   list(meta_data=data.frame(
-              dirname=vapply(fileList,function(x) dirname(x),'c'),
-              filename=vapply(fileList,function(x) basename(x),'c'),
-              nsamples=vapply(l,function(x) length(x@left),1),
-              stereo=vapply(l,function(x) x@stereo,TRUE),
-              fs=vapply(l,function(x) x@samp.rate,1),
-              bit=vapply(l,function(x) x@bit,1),
-              pcm=vapply(l,function(x) x@pcm,TRUE)
-              ),
-   signal=lapply(l,function(x) x@left))
+  lapply(fileList, tuneR::readWave) -> l
+  list(
+    meta_data = data.frame(
+      dirname = vapply(fileList, function(x)
+        dirname(x), 'c'),
+      filename = vapply(fileList, function(x)
+        basename(x), 'c'),
+      nsamples = vapply(l, function(x)
+        length(x@left), 1),
+      stereo = vapply(l, function(x)
+        x@stereo, TRUE),
+      fs = vapply(l, function(x)
+        x@samp.rate, 1),
+      bit = vapply(l, function(x)
+        x@bit, 1),
+      pcm = vapply(l, function(x)
+        x@pcm, TRUE)
+    ),
+    signal = lapply(l, function(x)
+      x@left)
+  )
 }
+
+
+
+
+
+
+savewavfiles <- function(meta_data,
+                         signal,
+                         suffix)
+{
+  addsuffix_to_file<-function (x,suffix)
+  {
+    paste0(substr(x,0,nchar(x)-4),suffix,".wav")
+  }
+
+
+  for (i in 1:ncol(signal))
+    tuneR::writeWave(
+      object = to_Wave(meta_data, signal, i),
+      filename = addsuffix_to_file(meta_data$filename[i], suffix)
+    )
+
+}
+

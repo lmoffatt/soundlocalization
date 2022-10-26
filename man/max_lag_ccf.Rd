@@ -4,7 +4,7 @@
 \alias{max_lag_ccf}
 \title{finds the lag that correspond to the maximal cross correlation}
 \usage{
-max_lag_ccf(ccf)
+max_lag_ccf(signal)
 }
 \arguments{
 \item{ccf}{a list that contains the pairs of cross correlations}

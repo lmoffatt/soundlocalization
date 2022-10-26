@@ -4,7 +4,7 @@
 \alias{optimize_delays_from_ccf}
 \title{Calculates the optimal lag combination for a set of ccfs pairs}
 \usage{
-optimize_delays_from_ccf(maxs_ccf)
+optimize_delays_from_ccf(data, maxs_ccf, max_lag_by_row)
 }
 \arguments{
 \item{ccf_list}{should include double indexed list of cross correlation functions}

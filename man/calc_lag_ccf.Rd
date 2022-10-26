@@ -4,7 +4,7 @@
 \alias{calc_lag_ccf}
 \title{calculates optimal lags for each microphone}
 \usage{
-calc_lag_ccf(max_ccf)
+calc_lag_ccf(max_lag)
 }
 \arguments{
 \item{max_ccf}{list containing the paired lags}
