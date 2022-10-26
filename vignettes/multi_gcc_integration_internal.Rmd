@@ -1,0 +1,162 @@
+---
+title: "multi_gcc_integration_internal"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{multi_gcc_integration_internal}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(soundlocalization)
+library(ggplot2)
+library(lubridate)
+library(tidyverse)
+```
+
+# this file contains the steps necessary for align files. 
+
+
+
+
+Lets do by example. 
+Here is a list of recordings taken on a line array of approx 4 m between receptors. 
+
+
+```{r}
+files<-list(
+ system.file("extdata", "Grabacion_2_andrea.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_1_joaco.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_1_cande.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_3_luciano.wav", package = "soundlocalization")
+ )
+labels=c("Andrea","Joaco","Candela","Luciano")
+geo_locations=rbind(geo_coordinates(lat=-34.61410605441556,
+                                lon= -58.38404404725583),
+                geo_coordinates(-34.614103295104634, -58.3839950969408),
+                geo_coordinates(-34.6140999839314, -58.383942123312224),
+                geo_coordinates(-34.61409722462029, -58.38389920796756))
+
+time_of_recording=ymd_hm("2022-09-03 10:52",tz="America/Buenos_Aires")
+```
+
+
+We use the function loadwavfiles to read all the recordings at once.
+
+```{r}
+recordings<-recordings(files = files,
+                       labels = labels,
+                       geo_locations = geo_locations, 
+                       time_of_recording = time_of_recording)
+
+
+apply_frame(recordings,indexes_for_same_length(recordings))->e_recordings
+gcc_phase_data(e_recordings,
+           max_freq=10000,
+           remove_if_z_is_greater_than=5,
+
+           freq_filter = F)->gcc_data
+
+str(gcc_data)
+```
+
+
+```{r}
+
+data_for_plot_gcc_phase(gcc_data,lag_window_in_meters = 8000, max_points =1000)->gcc_data_for_plot
+str(gcc_data_for_plot)
+
+```
+```{r}
+gcc_phase_plot(gcc_data_for_plot)
+```
+
+
+
+```{r}
+gcc_phase_data_for_tri_plot(gcc_data,lag_window_in_meters=8000,        max_points=100,keep_the_best_n =200,keep_if_z_is_greater_than = 100)->tri_d100
+```
+
+
+```{r}
+#str(tri_d)
+gcc_phase_tri_plot(tri_d100)
+```
+
+```{r}
+gcc_phase_data_for_lasso_source_reconstruction_plot(gcc_data,lag_window_in_meters=8000,        max_points=100,keep_the_best_n =200,lambda=0.01,keep_if_z_is_greater_than = 100)->r_source
+```
+
+```{r}
+ggplot(r_source$gcc_data_for_source_plot) + geom_raster(aes(x = lag_i_j, y = lag_i_k, fill = lag_values)) + geom_point(aes(x= lag_i_j, y = lag_i_k, size = source_nvalues_AB),color='red',alpha=0.2)+ geom_point(aes(x= lag_i_j, y = lag_i_k, size = source_nvalues_AC),color='green',alpha=0.2)+ geom_point(aes(x= lag_i_j, y = lag_i_k, size = source_nvalues_BC),color='yellow',alpha=0.2)+ facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral")
+```
+
+```{r}
+gcc_phase_source_plot(r_source)
+```
+
+
+
+```{r}
+gcc_phase_data_source_reconstruction_plot(gcc_data,lag_window_in_meters=8000,        max_points=100,keep_the_best_n =200,keep_if_z_is_greater_than = 100)->rp
+```
+
+
+```{r}
+```
+
+
+```{r}
+
+```
+
+```{r}
+library(gglasso)
+gcc_phase_data_for_plot(gcc_data,lag_window_in_meters=8000,max_points=100,remove_if_z_is_greater_than = 5)->rpp
+
+rpp$gcc_phase_data_for_plot%>%filter(((i=="Andrea")&(j=="Joaco"))|((i=="Andrea")&(j=="Candela"))|(i=="Joaco")&(j=="Candela"))->Y
+build_ABCij_to_ABi_transform_matrix(nrow(Y)/3)->A
+```
+
+
+```{r}
+#perform k-fold cross-validation to find optimal lambda value
+cv_model <- cv.gglasso(x = A$A,y =  Y$std_lag_values, group = A$xy_group)
+```
+
+
+```{r}
+#find optimal lambda value that minimizes test MSE
+best_lambda <- cv_model$lambda.min
+best_lambda
+```
+
+
+```{r}
+#produce plot of test MSE by lambda value
+plot(cv_model) 
+```
+```{r}
+#find coefficients of best model
+best_model <- gglasso(x = A$A,y =  Y$std_lag_values, group = A$xy_group)
+coef(best_model)
+
+```
+
+```{r}
+gcc_phase_data_for_source_reconstruction_plot(gcc_data,lambda=10,lag_window_in_meters=8000,        max_points=10,keep_the_best_n =200,keep_if_z_is_greater_than = 100)->r_source
+```
+
+
+
+```{r}
+gcc_phase_source_plot(r_source)
+```
+

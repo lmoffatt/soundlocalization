@@ -1,0 +1,174 @@
+---
+title: "understanding_gcc_phase"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{understanding_gcc_phase}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(soundlocalization)
+library(tidyverse)
+```
+
+```{r}
+fs=44100
+trace_duration=1
+nsamples=fs*trace_duration
+y0=simulate_harmonic_signal(fs=44100,trace_duration = trace_duration, fundamental_freq = 1000, harmonic_amplitudes = c(1,0.2,0.8,0.02,0.7,0.1,0.4,0.1),tstart = 0.1,t_end=0.4)
+y01=simulate_harmonic_signal(fs=44100,trace_duration = trace_duration, fundamental_freq = pi*1000, harmonic_amplitudes = c(1,0.2,0.8,0.02,0.7,0.1,0.4,0.1),tstart = 0.3,t_end=0.3+pi*0.01)
+
+
+y1=simulate_harmonic_signal(fs=44100,trace_duration = 1, fundamental_freq = 1000, harmonic_amplitudes = c(1,0.2,0.8,0.02,0.7,0.1,0.4,0.1),tstart = 0.1+0.01,t_end=0.4+0.01)
+lags=-(nsamples/2):(nsamples/2-1)/fs
+
+y11=simulate_harmonic_signal(fs=44100,trace_duration = 1, fundamental_freq = pi*1000, harmonic_amplitudes = c(1,0.2,0.8,0.02,0.7,0.1,0.4,0.1),tstart = 0.3+0.02,t_end=0.3+pi*0.01+0.02)
+lags=-(nsamples/2):(nsamples/2-1)/fs
+
+gcc_phase<-function(y0,y1,hanning=T)
+{
+  nsamples=length(y0)
+  hn=1
+  if (hanning)
+   hn = seewave::ftwindow(nsamples,wn="hanning")
+  Y0=fft(y0*hn)
+Y1=fft(y1*hn)
+i_lags=c((nsamples/2):nsamples,1:(nsamples/2-1))
+gcc=Re(fft((Conj(Y0)*Y1)/Mod((Conj(Y0)*Y1)),inverse = T))[i_lags]
+}
+
+dgcc_phase<-function(y0,y1,hanning=T)
+{
+  nsamples=length(y0)
+  w=c(0:(nsamples/2-1),(-nsamples/2):-1)*fs/nsamples
+  hn=1
+  if (hanning)
+   hn = seewave::ftwindow(nsamples,wn="hanning")
+  Y0=fft(y0*hn)
+Y1=fft(y1*hn)
+i_lags=c((nsamples/2):nsamples,1:(nsamples/2-1))
+dgcc=Re(fft((Conj(Y0)*Y1)/Mod((Conj(Y0)*Y1))*1i*w,inverse = T))[i_lags]
+}
+
+Igcc_phase<-function(y0,y1,hanning=T)
+{
+  nsamples=length(y0)
+  w=c(0:(nsamples/2-1),(-nsamples/2):-1)*fs/nsamples
+  hn=1
+  if (hanning)
+   hn = seewave::ftwindow(nsamples,wn="hanning")
+  Y0=fft(y0*hn)
+Y1=fft(y1*hn)
+i_lags=c((nsamples/2):nsamples,1:(nsamples/2-1))
+dgcc=Re(fft((Conj(Y0)*Y1)/Mod((Conj(Y0)*Y1))/1i/w,inverse = T))[i_lags]
+}
+
+
+```
+
+
+
+
+```{r}
+
+f0= 1000*3
+f1= 1000*1.5
+
+dt0=0.01
+dt1=0.016
+
+ncyclesdur0=30
+ncyclesdur1=20
+
+tstart0=0.45
+tstart1=0.55
+
+dur0=ncyclesdur0/f0
+dur1=ncyclesdur1/f1
+
+A0=c(1,0.2,0.8,0.14,0.5)
+A1=c(1,0.3,0.7,0.31,0.57)
+
+t=1:nsamples*fs
+
+y0=simulate_harmonic_signal(fs=44100,trace_duration = trace_duration, fundamental_freq = f0, harmonic_amplitudes = A0,tstart = tstart0,t_end=tstart0+dur0)
+y01=simulate_harmonic_signal(fs=44100,trace_duration = trace_duration, fundamental_freq = f1, harmonic_amplitudes = A1,tstart = tstart1,t_end=tstart1+dur1)
+
+
+y1=simulate_harmonic_signal(fs=44100,trace_duration = 1, fundamental_freq = f0, harmonic_amplitudes = A0,tstart = tstart0+dt0,t_end=tstart0+dur0+dt0)
+lags=-(nsamples/2):(nsamples/2-1)/fs
+
+y11=simulate_harmonic_signal(fs=44100,trace_duration = 1, fundamental_freq = f1, harmonic_amplitudes = A1,tstart = tstart1+dt1,t_end=tstart1+dur1+dt1)
+lags=-(nsamples/2):(nsamples/2-1)/fs
+gcc=gcc_phase(y0+rnorm(nsamples)*0.001+y01,y1+rnorm(nsamples)*0.0001+y11,hanning = T)
+dgcc=Igcc_phase(y0+rnorm(nsamples)*0.001+y01,y1+rnorm(nsamples)*0.0001+y11,hanning = T)
+
+ggplot()+geom_line(aes(x=lags,y = gcc))+scale_x_continuous(limits=c(min(dt0,dt1)-0.1*abs(dt0-dt1), max(dt0,dt1)+0.1*abs(dt0-dt1)))
+
+ggplot()+geom_line(aes(x=lags,y = gcc))+scale_x_continuous(limits=c(min(dt0,dt1)-5*abs(dt0-dt1), max(dt0,dt1)+5*abs(dt0-dt1)))
+
+ggplot()+geom_line(aes(x=lags,y = gcc))
+
+ggplot()+geom_line(aes(x=lags,y = dgcc))+scale_x_continuous(limits=c(min(dt0,dt1)-0.1*abs(dt0-dt1), max(dt0,dt1)+0.1*abs(dt0-dt1)))
+
+ggplot()+geom_line(aes(x=lags,y = dgcc))+scale_x_continuous(limits=c(min(dt0,dt1)-5*abs(dt0-dt1), max(dt0,dt1)+5*abs(dt0-dt1)))
+
+ggplot()+geom_line(aes(x=lags,y = dgcc))
+
+ggplot()+geom_line(aes(x=t,y = y0))
+ggplot()+geom_line(aes(x=t,y = y01))
+ggplot()+geom_point(aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y0))[1:(nsamples/2)]))
+ggplot()+geom_point(aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y01))[1:(nsamples/2)]))
+
+
+```
+
+f0= 1000*3
+f1= 1000*1.5
+
+dt0=0.01
+dt1=0.015
+
+ncyclesdur0=30
+ncyclesdur1=20
+
+tstart0=0.45
+tstart1=0.55
+
+dur0=ncyclesdur0/f0
+dur1=ncyclesdur1/f1
+
+A0=c(1,0.2,0.8,0.14,0.5)
+A1=c(1,0.3,0.7,0.31,0.57)
+
+
+y0=simulate_harmonic_signal(fs=44100,trace_duration = trace_duration, fundamental_freq = f0, harmonic_amplitudes = A0,tstart = tstart0,t_end=tstart0+dur0)
+y01=simulate_harmonic_signal(fs=44100,trace_duration = trace_duration, fundamental_freq = f1, harmonic_amplitudes = A1,tstart = tstart1,t_end=tstart1+dur1)
+
+
+y1=simulate_harmonic_signal(fs=44100,trace_duration = 1, fundamental_freq = f0, harmonic_amplitudes = A0,tstart = tstart0+dt0,t_end=tstart0+dur0+dt0)
+lags=-(nsamples/2):(nsamples/2-1)/fs
+
+y11=simulate_harmonic_signal(fs=44100,trace_duration = 1, fundamental_freq = f1, harmonic_amplitudes = A1,tstart = tstart1+dt1,t_end=tstart1+dur1+dt1)
+lags=-(nsamples/2):(nsamples/2-1)/fs
+gcc=gcc_phase(y0+rnorm(nsamples)*0.001+y01,y1+rnorm(nsamples)*0.0001+y11,hanning = F)
+ggplot()+geom_line(aes(x=lags,y = gcc))+scale_x_continuous(limits=c(min(dt0,dt1)-0.1*abs(dt0-dt1), max(dt0,dt1)+0.1*abs(dt0-dt1)))
+ggplot()+geom_line(aes(x=lags,y = gcc))+scale_x_continuous(limits=c(min(dt0,dt1)-5*abs(dt0-dt1), max(dt0,dt1)+5*abs(dt0-dt1)))
+#ggplot()+geom_line(aes(x=lags,y = gcc))+scale_x_continuous(limits=c(0,0.03))
+ggplot()+geom_line(aes(x=lags,y = gcc))
+ggplot()+geom_line(aes(x=t,y = y0))
+ggplot()+geom_line(aes(x=t,y = y01))
+ggplot()+geom_point(aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y0))[1:(nsamples/2)]))
+ggplot()+geom_point(aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y01))[1:(nsamples/2)]))
+
+
+```
+

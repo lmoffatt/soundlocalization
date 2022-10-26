@@ -1,0 +1,219 @@
+---
+title: "align_files_internal"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{align_files_internal}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(soundlocalization)
+library(ggplot2)
+library(lubridate)
+library(tidyverse)
+```
+
+# this file contains the steps necessary for align files. 
+
+
+
+
+Lets do by example. 
+Here is a list of recordings taken on a line array of approx 4 m between receptors. 
+
+
+```{r}
+files<-list(
+ system.file("extdata", "Grabacion_2_andrea.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_1_joaco.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_1_cande.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_3_luciano.wav", package = "soundlocalization")
+ )
+labels=c("Andrea","Joaco","Candela","Luciano")
+geo_locations=rbind(geo_coordinates(lat=-34.61410605441556,
+                                lon= -58.38404404725583),
+                geo_coordinates(-34.614103295104634, -58.3839950969408),
+                geo_coordinates(-34.6140999839314, -58.383942123312224),
+                geo_coordinates(-34.61409722462029, -58.38389920796756))
+
+time_of_recording=ymd_hm("2022-09-03 10:52",tz="America/Buenos_Aires")
+```
+
+
+We use the function loadwavfiles to read all the recordings at once.
+
+```{r}
+recordings<-recordings(files = files,
+                       labels = labels,
+                       geo_locations = geo_locations, 
+                       time_of_recording = time_of_recording)
+
+```
+
+
+Lets see the organization of recordings
+```{r}
+str(recordings)
+```
+We see that it is comprised by a list of two subojects: 
+1. meta_data, a data.frame with information on 
+ + the directory, 
+ + filename, 
+ + number of samples, 
+ a boolean indicating if the recording was stereo, 
+ the frequency of sampling, 
+ the number of bits and 
+ if the pcm is complied. 
+
+2. signal: a list of integer vectors of different sizes
+  The signal contains the actual recording, in a limited number of bits (16)
+
+
+Now, let see a graphical representation of the sound recorded at each site. 
+
+```{r}
+sound_plot(recordings)
+
+```
+
+
+
+Now, if we want to do a fourier transform, we better use the same number of samples. So we need to homogenize their size. 
+We build a function exactly for that purpose. 
+
+```{r}
+i_same_length=indexes_for_same_length(recordings)
+str(i_same_length)
+```
+
+we see that the output of this function is a list of two integer vectors: i_start and i_end. We see that the i_end[1] is equal to the size of the first signal, the idea is that by applying those indexes we obtain recordings of the same length. 
+
+For this purpose we use another helper function
+```{r}
+apply_frame(recordings,i_same_length)->e_recordings
+str(e_recordings)
+```
+we see that the output contains the indexes for start and end and a long matrix with the truncated signal 
+
+
+Now, we need to AZapply a hanning window to avoid artifacts from the fft. 
+```{r}
+h_recordings=apply_hanning_window(e_recordings)
+str(h_recordings)
+```
+
+Lets see the aspect of the truncated recordings
+```{r}
+sound_plot(h_recordings)
+```
+
+
+
+Now we are ready to calculate the fourier transforms
+
+```{r}
+f_signal=calculate_ffts(h_recordings)
+str(f_signal)
+```
+
+
+
+
+now we can calculate the crosscorrelations between the recordings, so we can come up close to be able to align them
+```{r}
+ccf_signal=calculate_list_of_cross_correlations(h_recordings)
+str(ccf_signal)  
+```
+```{r}
+gcc_signal=calculate_list_of_gcc_phase(e_recordings, remove_if_z_is_greater_than = 5)
+str(gcc_signal)  
+
+
+```
+Lets plot the gcc-phase 
+
+```{r}
+gcc_phase_data(e_recordings,
+              t_start = 0,
+              t_end = 100,
+           min_freq=0,
+           max_freq=10000,
+           remove_if_z_is_greater_than=5,
+
+           freq_filter = F)->gcc_data
+
+```
+
+```{r}
+str(gcc_data)
+```
+
+
+```{r}
+
+data_for_plot_gcc_phase(gcc_data,lag_window_in_meters = 8000, max_points =1000)->gcc_data_for_plot
+str(gcc_data_for_plot)
+
+```
+```{r}
+gcc_phase_plot(gcc_data_for_plot)
+```
+
+
+```{r}
+rrange<-function(v) diff(range(v))
+data_for_plot_gcc_phase(gcc_data,lag_window_in_meters = 100, decimating_operation = "rrange",max_points = 10000)->gcc_data_for_plot_mean
+gcc_phase_plot(gcc_data_for_plot_mean)
+
+```
+
+```{r}
+gcc_phase_data_for_tri_plot(gcc_data,lag_window_in_meters=8000,        max_points=100,keep_the_best_n =200,keep_if_z_is_greater_than = 100)->tri_d100
+```
+
+
+```{r}
+#str(tri_d)
+gcc_phase_tri_plot(tri_d100)
+```
+
+```{r}
+gphase_filter_peaks(gcc = h_recordings,t_start = 0,t_end = 100,lag_window_in_meters = 800,max_points = 100,keep_the_best_n = 100)->peaks
+```
+
+
+```{r}
+gcc_phase_plot(tri_d100,lag_window_in_meters = 800)
+
+```
+
+
+
+now, lets find out the lags
+
+```{r}
+max_ccf=max_lag_ccf(ccf_signal)
+str(max_ccf)
+```
+```{r}
+calc_lag_ccf(max_ccf )->maxs_ccf
+str(maxs_ccf)
+```
+
+
+
+now we can optimize the lags to find the better combination
+```{r}
+optimize_delays_from_ccf(ccf_signal,max_ccf,maxs_ccf)->opt_ccf
+str(opt_ccf)
+```
+
+
