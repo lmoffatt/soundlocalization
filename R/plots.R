@@ -100,16 +100,16 @@ frequency_plot <- function(signal,
     ggplot2::ggplot(d) +
       ggplot2::geom_line(aes(freq, dB, color = file), alpha = alpha) +
       scale_x_log10() +
-      facet_wrap(~ file, scales = "free")
+      facet_wrap( ~ file, scales = "free")
   }
   else if (dB)
     ggplot2::ggplot(d) +
     ggplot2::geom_line(aes(freq, dB, color = file), alpha = alpha) +
-    facet_wrap(~ file, scales = "free")
+    facet_wrap( ~ file, scales = "free")
   else
     ggplot2::ggplot(d) +
     ggplot2::geom_line(aes(freq, abs(fft), color = file), alpha = alpha) +
-    facet_wrap(~ file, scales = "free")
+    facet_wrap( ~ file, scales = "free")
 
 }
 
@@ -154,7 +154,7 @@ sound_plot <-
 
     ggplot2::ggplot(d) +
       ggplot2::geom_line(aes(t, signal), alpha = alpha) +
-      ggplot2::facet_wrap(~ receptor)
+      ggplot2::facet_wrap( ~ receptor)
 
 
 
@@ -292,7 +292,7 @@ spectro_plot_luc <-
       #  dplyr::filter(dB > min_dB) %>%
       ggplot() +
       geom_raster(aes(x = t, y = f, fill = dB), interpolate = T) +
-      facet_wrap(~ receptor) +
+      facet_wrap( ~ receptor) +
       scale_fill_distiller(palette = "Spectral", limits =
                              c(min_dB, 0))
 
@@ -763,7 +763,7 @@ Tri_Delay_to_gcc_phat_matrix <- function(number_of_lags)
     n_receptors
   ))
 
-  A = matrix(nrow =)
+  A = matrix(nrow = )
 
 }
 
@@ -976,13 +976,17 @@ gcc_phase_source_plot <-
         )) +
         geom_point(
           data = filter(
-            r_source$gcc_data_for_source_plot,
-            !is.na(source_nvalues_AB)
+            r_source$gcc_data_for_source_plot,!is.na(source_nvalues_AB)
           ),
-          aes(x = lag_i_j, y = lag_i_k, size = source_nvalues_AB,color = source_nvalues_AB),
+          aes(
+            x = lag_i_j,
+            y = lag_i_k,
+            size = source_nvalues_AB,
+            color = source_nvalues_AB
+          ),
           alpha = 0.2
         ) +
-        facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral")+
+        facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral") +
         scale_color_distiller(palette = "Spectral")
     )
     print(
@@ -992,13 +996,17 @@ gcc_phase_source_plot <-
         )) +
         geom_point(
           data = filter(
-            r_source$gcc_data_for_source_plot,
-            !is.na(source_nvalues_AC)
+            r_source$gcc_data_for_source_plot,!is.na(source_nvalues_AC)
           ),
           aes(
-          x = lag_i_j, y = lag_i_k, size = source_nvalues_AC,color = source_nvalues_AC
-        ), alpha = 0.2) +
-        facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral")+
+            x = lag_i_j,
+            y = lag_i_k,
+            size = source_nvalues_AC,
+            color = source_nvalues_AC
+          ),
+          alpha = 0.2
+        ) +
+        facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral") +
         scale_color_distiller(palette = "Spectral")
 
     )
@@ -1009,13 +1017,17 @@ gcc_phase_source_plot <-
         )) +
         geom_point(
           data = filter(
-            r_source$gcc_data_for_source_plot,
-            !is.na(source_nvalues_BC)
+            r_source$gcc_data_for_source_plot,!is.na(source_nvalues_BC)
           ),
           aes(
-          x = lag_i_j, y = lag_i_k, size=source_nvalues_BC,color = source_nvalues_BC
-        ), alpha = 0.2) +
-        facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral")+
+            x = lag_i_j,
+            y = lag_i_k,
+            size = source_nvalues_BC,
+            color = source_nvalues_BC
+          ),
+          alpha = 0.2
+        ) +
+        facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral") +
         scale_color_distiller(palette = "Spectral")
 
     )
@@ -1026,131 +1038,31 @@ gcc_phase_source_plot <-
 
 
 
-gcc_phase_data_source_reconstruction_plot <-
-  function(gcc,
-           t_start = NULL,
-           t_end = NULL,
-           min_freq = NULL,
-           max_freq = NULL,
-           lag_window_in_meters = 8000,
-           max_points = 100,
-           keep_the_best_n = 200,
-           keep_if_z_is_greater_than = 100,
-           freq_filter = F,
-           velocity_of_sound = 334)
-  {
-    if (!"gcc_phase_std" %in% names(gcc))
-      gcc <- gcc_phase_data(
-        rec = gcc,
-        t_start = t_start,
-        t_end = t_end,
-        min_freq = min_freq,
-        max_freq = max_freq,
-        remove_if_z_is_greater_than = keep_if_z_is_greater_than,
-        freq_filter = freq_filter
-      )
-    nsamples = length(gcc$gcc_phase[[1]][[1]])
-    lag_max = ceiling(lag_window_in_meters / velocity_of_sound * gcc$fs[1])
-    stopifnot("the sampled frame is wider than the lag window" = lag_max  < nsamples)
-    lags = ((-lag_max):(lag_max - 1)) / gcc$fs[1]
-    i_lags = c((-lag_max):0 + nsamples, 1:(lag_max - 1))
-
-    stopifnot("the sampled frame is wider than the lag window" = lag_max * 4 < nsamples)
-
-    factor = ceiling(2 * lag_max / max_points)
-
-    lag_max_f = lag_max / factor
-
-    n_receptors = length(gcc$labels)
-
-    lags_f = round(lags * gcc$fs[1] / factor) * factor / gcc$fs[1]
-
-    lags = unique(lags_f)
-
-    gcc$gcc_phase_data_for_reconstruction =
-      lapply(
-        X = 1:length(gcc$gcc_phase_std),
-        FUN =  function(i)
-          lapply(1:length(gcc$gcc_phase_std[[i]]),
-                 function(j)
-                 {
-                   d <- data.frame(lag_value = gcc$gcc_phase_std[[i]][[j]]$z[i_lags],
-                                   lags = lags_f) %>% group_by(lags) %>%
-                     summarise(lag_value = max(lag_value))
-
-                   list(
-                     std_lag_values = d$lag_value ,
-
-                     i = gcc$labels[i],
-                     j = gcc$labels[i + j]
-                   )
-                 })
-      )
-
-
-  }
-
-
-
-
-
-filter_peaks <- function(peaks, max_peaks)
-{
-  stopifnot("filtered_gcc_phase_std" %in% peaks)
-  ph = peaks$filtered_gcc_phase_std
-
-  n_receptors = length(peaks$labels)
-
-  is_valid_peak <- function(i_receptor, j_receptor)
-  {
-
-  }
-
-  Reduce(function (prev, i)
-  {
-    temptive_source_lags = ph[[1]][[1]]$lags_sorted[i]
-    temptive_source_lag_values = ph[[1]][[1]]$values_sorted[i]
-    i_receptor = 3
-    while (i_receptor <= n_receptors)
-    {
-      i_lag = 1
-      while (i_lag <= max_peaks)
-      {
-        temptive_source_lags = c(temptive_source_lags,
-                                 ph[[1]][[i_receptor]]$lags_sorted[i_lag])
-        temptive_source_lag_values = c(temptive_source_lag_values,
-                                       ph[[1]][[i_receptor]]$values_sorted[i_lag])
-
-
-
-
-      }
-    }
-
-
-
-
-
-  })
-
-}
 
 
 
 
 
 
-gphase_filter_peaks <- function(gcc,
-                                t_start = NULL,
-                                t_end = NULL,
-                                min_freq = NULL,
-                                max_freq = NULL,
-                                lag_window_in_meters,
-                                max_points,
-                                keep_if_z_is_greater_than = 5,
-                                keep_the_best_n = 5,
-                                velocity_of_sound = 334,
-                                freq_filter = F)
+
+
+
+
+
+
+
+
+
+gphase_filter_peaks_data <- function(gcc,
+                                     t_start = NULL,
+                                     t_end = NULL,
+                                     min_freq = NULL,
+                                     max_freq = NULL,
+                                     lag_window_in_meters,
+                                     keep_if_z_is_greater_than = 5,
+                                     keep_the_best_n = 5,
+                                     velocity_of_sound = 334,
+                                     freq_filter = F)
 {
   if (!"gcc_phase_std" %in% names(gcc))
     gcc <- gcc_phase_data(
@@ -1166,54 +1078,116 @@ gphase_filter_peaks <- function(gcc,
   lag_max = ceiling(lag_window_in_meters / velocity_of_sound * gcc$fs[1])
 
   nsamples = length(gcc$gcc_phase[[1]][[1]])
-  stopifnot("the sampled frame is wider than the lag window" = lag_max * 4 < nsamples)
+  stopifnot("the sampled frame is wider than the lag window" = lag_max * 2 < nsamples)
 
-  lags_2 = ((-lag_max * 2 - 1):(lag_max * 2)) / gcc$fs[1]
+  gcc$lags = ((-lag_max):(lag_max - 1)) / gcc$fs[1]
 
-  factor = ceiling(2 * lag_max / max_points)
-
-  lag_max_f = ceiling(lag_max / factor)
-
-  lags_2f = floor(lags_2 * gcc$fs[1] / factor) * factor / gcc$fs[1]
-
-
-  i_lags_2 = c((-lag_max * 2):0 + nsamples, 1:(lag_max * 2 + 1))
-
-
-  n_2_lags = length(unique(lags_2f))
   n_receptors = length(gcc$labels)
+  i_lags = c((-lag_max):0 + nsamples, 1:(lag_max  - 1))
+  gcc$gcc_peaks_data =lapply(1:(n_receptors - 1),
+    function (i)
+      lapply((i + 1):n_receptors,function(j)
+        {
+          d = data.frame(lags = gcc$lags,
+                         lag_value = gcc$gcc_phase_std[[i]][[j - i]]$z[i_lags])
+          threshold = min(sort(d$lag_value, decreasing = T)[keep_the_best_n],
+                          keep_if_z_is_greater_than)
+          d <- d %>% filter(lag_value > threshold)
 
-  i_lags = (n_2_lags / 4):(n_2_lags * 3 / 4 - 1)
-  lags = unique(lags_2f)
-
-
-
-
-  gcc$filtered_gcc_phase_std = lapply(1:(n_receptors - 1),  function(i)
-    lapply((i + 1):(n_receptors),
-           function(j)
-           {
-             d <-
-               data.frame(lag_value = gcc$gcc_phase_std[[i]][[j - i]]$z[i_lags_2],
-                          lags = lags_2f) %>% group_by(lags) %>%
-               summarise(lag_value = max(lag_value))
-             s = sort(d$lag_value,
-                      decreasing = T,
-                      index.return = T)
-             return(
-               list(
-                 lags = lags,
-                 values = d$lag_value,
-                 values_sorted = s[[1]],
-                 i_lags_sorted = s[[2]],
-                 lags_sorted = lags[s[[2]]]
-               )
-             )
-           }))
+          return(list(
+            i = i,
+            j = j,
+            d = d
+          ))
+        }
+        )
+  )
 
   return(gcc)
-
 }
+
+
+lasso_on_peaks <- function(gcc,
+                           t_start = NULL,
+                           t_end = NULL,
+                           min_freq = NULL,
+                           max_freq = NULL,
+                           lag_window_in_meters,
+                           keep_if_z_is_greater_than = 5,
+                           keep_the_best_n = 5,
+                           velocity_of_sound = 334,
+                           freq_filter = F)
+
+{
+  if (!"gcc_peaks_data" %in% names(gcc))
+    gcc <- gphase_filter_peaks_data(
+      gcc,
+      t_start = t_start,
+      t_end = t_end,
+      min_freq = min_freq,
+      max_freq = max_freq,
+      lag_window_in_meters = lag_window_in_meters,
+      keep_if_z_is_greater_than = keep_if_z_is_greater_than,
+      keep_the_best_n = keep_the_best_n,
+      velocity_of_sound = velocity_of_sound,
+      freq_filter = freq_filter
+    )
+
+  expand <- function(d_matrix, d_vector)
+  {
+    d = data.frame(lags = d_vector$d$lags, values = d_vector$d$lag_value)
+    colnames(d) <-
+      c(
+        paste0("lag_", d_vector$i, "_", d_vector$j),
+        paste0("values_", d_vector$i, "_", d_vector$j)
+      )
+    d <- full_join(d_matrix$d, d, by = character())
+    list(
+      i = c(d_matrix$i, d_vector$i),
+      j = c(d_matrix$j, d_vector$j),
+      d = d
+    )
+  }
+
+  contract <- function(d_matrix, d_vector)
+  {
+    d = data.frame(lags = d_vector$d$lags, values = d_vector$d$lag_value)
+    colnames(d) <- c(
+      paste0("lag_", d_vector$i, "_", d_vector$j),
+      paste0("values_", d_vector$i, "_", d_vector$j)
+    )
+
+    dd = d_matrix$d
+    dd[[paste0("lag_", d_vector$i, "_", d_vector$j)]] =
+      dd[[paste0("lag_", 1, "_", d_vector$j)]] - dd[[paste0("lag_", 1, "_", d_vector$i)]]
+    d <- inner_join(dd, d)
+    list(
+      i = c(d_matrix$i, d_vector$i),
+      j = c(d_matrix$j, d_vector$j),
+      d = d
+    )
+  }
+  n_receptors = length(gcc$labels)
+
+  gcc$peaks =
+    Reduce (
+      function (d_matrix, j)
+        Reduce(
+          function (d_matrixi, i)
+            if (gcc$gcc_peaks_data[[i]][[j-i]]$j %in% d_matrixi$j)
+              contract(d_matrixi, gcc$gcc_peaks_data[[i]][[j-i]])
+          else
+            expand(d_matrixi, gcc$gcc_peaks_data[[i]][[j-i]]),
+          1:(j - 1),
+          d_matrix
+        ),
+      2:n_receptors,
+      list(d = data.frame())
+    )
+
+  return (gcc)
+}
+
 
 
 
@@ -1281,7 +1255,7 @@ cross_plot <-
     )
     d = gcc$data_for_plot
     best_lags = d$lags[d$r_lag_values > lag_filter_factor]
-    best_lags_values = d$r_lag_values[d$r_lag_values > lag_filter_factor]
+    best_lag_value = d$r_lag_values[d$r_lag_values > lag_filter_factor]
     lapply(best_lags, function(lag)
       filter_by_lag(
         fft1 = gcc$fft[[1]],

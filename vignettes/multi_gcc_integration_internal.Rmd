@@ -105,16 +105,17 @@ gcc_phase_source_plot(r_source)
 
 
 ```{r}
-gcc_phase_data_source_reconstruction_plot(gcc_data,lag_window_in_meters=8000,        max_points=100,keep_the_best_n =200,keep_if_z_is_greater_than = 100)->rp
+gphase_filter_peaks_data(gcc_data,lag_window_in_meters=8000,keep_the_best_n =200,keep_if_z_is_greater_than = 100)->rp
 ```
 
 
 ```{r}
+lasso_on_peaks(rp)->lp
 ```
 
 
 ```{r}
-
+str(lp)
 ```
 
 ```{r}
