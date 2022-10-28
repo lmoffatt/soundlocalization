@@ -100,16 +100,16 @@ frequency_plot <- function(signal,
     ggplot2::ggplot(d) +
       ggplot2::geom_line(aes(freq, dB, color = file), alpha = alpha) +
       scale_x_log10() +
-      facet_wrap( ~ file, scales = "free")
+      facet_wrap(~ file, scales = "free")
   }
   else if (dB)
     ggplot2::ggplot(d) +
     ggplot2::geom_line(aes(freq, dB, color = file), alpha = alpha) +
-    facet_wrap( ~ file, scales = "free")
+    facet_wrap(~ file, scales = "free")
   else
     ggplot2::ggplot(d) +
     ggplot2::geom_line(aes(freq, abs(fft), color = file), alpha = alpha) +
-    facet_wrap( ~ file, scales = "free")
+    facet_wrap(~ file, scales = "free")
 
 }
 
@@ -154,7 +154,7 @@ sound_plot <-
 
     ggplot2::ggplot(d) +
       ggplot2::geom_line(aes(t, signal), alpha = alpha) +
-      ggplot2::facet_wrap( ~ receptor)
+      ggplot2::facet_wrap(~ receptor)
 
 
 
@@ -292,7 +292,7 @@ spectro_plot_luc <-
       #  dplyr::filter(dB > min_dB) %>%
       ggplot() +
       geom_raster(aes(x = t, y = f, fill = dB), interpolate = T) +
-      facet_wrap( ~ receptor) +
+      facet_wrap(~ receptor) +
       scale_fill_distiller(palette = "Spectral", limits =
                              c(min_dB, 0))
 
@@ -449,6 +449,7 @@ data_for_plot_gcc_phase <-
   {
     nsamples = length(gcc$gcc_phase[[1]][[1]])
     lag_max = ceiling(lag_window_in_meters / velocity_of_sound * gcc$fs[1])
+    gcc$lag_max = lag_max
     stopifnot("the sampled frame is wider than the lag window" = lag_max * 2 < nsamples)
     lags = ((-lag_max):(lag_max - 1)) / gcc$fs[1]
     i_lags = c((-lag_max):0 + nsamples, 1:(lag_max - 1))
@@ -465,6 +466,7 @@ data_for_plot_gcc_phase <-
     lags_f = round(lags * gcc$fs[1] / factor) * factor / gcc$fs[1]
 
     lags = unique(lags_f)
+
 
     gcc$gcc_phase_data_for_plot = Reduce(function(p, i)
       rbind(p,
@@ -594,6 +596,7 @@ gcc_phase_data_for_tri_plot <-
       )
 
     lag_max = ceiling(lag_window_in_meters / velocity_of_sound * gcc$fs[1])
+    gcc$lag_max = lag_max
 
     nsamples = length(gcc$gcc_phase[[1]][[1]])
     stopifnot("the sampled frame is wider than the lag window" = lag_max * 4 < nsamples)
@@ -631,6 +634,7 @@ gcc_phase_data_for_tri_plot <-
     j_k_lags = ((lags_ik - lags_ij) * gcc$fs[1] / factor) + n_2_lags / 2 +
       1
 
+    gcc$lag_max = lag_max
     gcc$gcc_data_for_tri_plot = Reduce(function(p, i)
       rbind(p,
             Reduce(
@@ -763,7 +767,7 @@ Tri_Delay_to_gcc_phat_matrix <- function(number_of_lags)
     n_receptors
   ))
 
-  A = matrix(nrow = )
+  A = matrix(nrow =)
 
 }
 
@@ -794,6 +798,7 @@ gcc_phase_data_for_lasso_source_reconstruction_plot <-
       )
 
     lag_max = ceiling(lag_window_in_meters / velocity_of_sound * gcc$fs[1])
+    gcc$lag_max = lag_max
 
     nsamples = length(gcc$gcc_phase[[1]][[1]])
     stopifnot("the sampled frame is wider than the lag window" = lag_max * 2 < nsamples)
@@ -976,7 +981,8 @@ gcc_phase_source_plot <-
         )) +
         geom_point(
           data = filter(
-            r_source$gcc_data_for_source_plot,!is.na(source_nvalues_AB)
+            r_source$gcc_data_for_source_plot,
+            !is.na(source_nvalues_AB)
           ),
           aes(
             x = lag_i_j,
@@ -996,7 +1002,8 @@ gcc_phase_source_plot <-
         )) +
         geom_point(
           data = filter(
-            r_source$gcc_data_for_source_plot,!is.na(source_nvalues_AC)
+            r_source$gcc_data_for_source_plot,
+            !is.na(source_nvalues_AC)
           ),
           aes(
             x = lag_i_j,
@@ -1017,7 +1024,8 @@ gcc_phase_source_plot <-
         )) +
         geom_point(
           data = filter(
-            r_source$gcc_data_for_source_plot,!is.na(source_nvalues_BC)
+            r_source$gcc_data_for_source_plot,
+            !is.na(source_nvalues_BC)
           ),
           aes(
             x = lag_i_j,
@@ -1076,6 +1084,7 @@ gphase_filter_peaks_data <- function(gcc,
     )
 
   lag_max = ceiling(lag_window_in_meters / velocity_of_sound * gcc$fs[1])
+  gcc$lag_max = lag_max
 
   nsamples = length(gcc$gcc_phase[[1]][[1]])
   stopifnot("the sampled frame is wider than the lag window" = lag_max * 2 < nsamples)
@@ -1084,39 +1093,36 @@ gphase_filter_peaks_data <- function(gcc,
 
   n_receptors = length(gcc$labels)
   i_lags = c((-lag_max):0 + nsamples, 1:(lag_max  - 1))
-  gcc$gcc_peaks_data =lapply(1:(n_receptors - 1),
-    function (i)
-      lapply((i + 1):n_receptors,function(j)
-        {
-          d = data.frame(lags = gcc$lags,
-                         lag_value = gcc$gcc_phase_std[[i]][[j - i]]$z[i_lags])
-          threshold = min(sort(d$lag_value, decreasing = T)[keep_the_best_n],
-                          keep_if_z_is_greater_than)
-          d <- d %>% filter(lag_value > threshold)
+  gcc$gcc_peaks_data = lapply(1:(n_receptors - 1),
+                              function (i)
+                                lapply((i + 1):n_receptors, function(j)
+                                {
+                                  d = data.frame(lags = gcc$lags,
+                                                 lag_value = gcc$gcc_phase_std[[i]][[j - i]]$z[i_lags])
+                                  threshold = min(sort(d$lag_value, decreasing = T)[keep_the_best_n],
+                                                  keep_if_z_is_greater_than)
+                                  d <-
+                                    d %>% filter(lag_value > threshold)
 
-          return(list(
-            i = i,
-            j = j,
-            d = d
-          ))
-        }
-        )
-  )
+                                  return(list(i = i,
+                                              j = j,
+                                              d = d))
+                                }))
 
   return(gcc)
 }
 
 
-lasso_on_peaks <- function(gcc,
-                           t_start = NULL,
-                           t_end = NULL,
-                           min_freq = NULL,
-                           max_freq = NULL,
-                           lag_window_in_meters,
-                           keep_if_z_is_greater_than = 5,
-                           keep_the_best_n = 5,
-                           velocity_of_sound = 334,
-                           freq_filter = F)
+obtain_shared_peaks <- function(gcc,
+                                t_start = NULL,
+                                t_end = NULL,
+                                min_freq = NULL,
+                                max_freq = NULL,
+                                lag_window_in_meters,
+                                keep_if_z_is_greater_than = 5,
+                                keep_the_best_n = 5,
+                                velocity_of_sound = 334,
+                                freq_filter = F)
 
 {
   if (!"gcc_peaks_data" %in% names(gcc))
@@ -1169,15 +1175,15 @@ lasso_on_peaks <- function(gcc,
   }
   n_receptors = length(gcc$labels)
 
-  gcc$peaks =
+  gcc$shared_peaks =
     Reduce (
       function (d_matrix, j)
         Reduce(
           function (d_matrixi, i)
-            if (gcc$gcc_peaks_data[[i]][[j-i]]$j %in% d_matrixi$j)
-              contract(d_matrixi, gcc$gcc_peaks_data[[i]][[j-i]])
+            if (gcc$gcc_peaks_data[[i]][[j - i]]$j %in% d_matrixi$j)
+              contract(d_matrixi, gcc$gcc_peaks_data[[i]][[j - i]])
           else
-            expand(d_matrixi, gcc$gcc_peaks_data[[i]][[j-i]]),
+            expand(d_matrixi, gcc$gcc_peaks_data[[i]][[j - i]]),
           1:(j - 1),
           d_matrix
         ),
@@ -1189,6 +1195,333 @@ lasso_on_peaks <- function(gcc,
 }
 
 
+shared_peaks_data_for_plot <- function(gcc,
+                                       t_start = NULL,
+                                       t_end = NULL,
+                                       min_freq = NULL,
+                                       max_freq = NULL,
+                                       lag_window_in_meters,
+                                       keep_if_z_is_greater_than = 5,
+                                       keep_the_best_n = 5,
+                                       velocity_of_sound = 334,
+                                       freq_filter = F)
+
+{
+  if (!"shared_peaks" %in% names(gcc))
+    gcc <- obtain_shared_peaks(
+      gcc,
+      t_start = t_start,
+      t_end = t_end,
+      min_freq = min_freq,
+      max_freq = max_freq,
+      lag_window_in_meters = lag_window_in_meters,
+      keep_if_z_is_greater_than = keep_if_z_is_greater_than,
+      keep_the_best_n = keep_the_best_n,
+      velocity_of_sound = velocity_of_sound,
+      freq_filter = freq_filter
+    )
+
+
+  max_lag = gcc$lag_max / gcc$fs[1]
+  min_lag = -max_lag
+
+  n_receptors = length(gcc$labels)
+
+  only_in_range <- function(min, max, x)
+  {
+    ifelse((x >= min) & (x <= max), x, NA)
+  }
+
+
+
+
+  diag_lag <-
+    function(min_lag_x,
+             max_lag_x,
+             min_lag_y,
+             max_lag_y,
+             lag_jk)
+    {
+      Reduce(function(p, lag)
+      {
+        x_min = min_lag_x
+        y_min = min_lag_y
+        x_max = max_lag_x
+        y_max = max_lag_y
+
+        # the diagonal is outside the inner square
+        if ((min_lag_x + lag > max_lag_y) |
+            (max_lag_x + lag < min_lag_y))
+        {
+          x_min = NA
+          y_min = NA
+          x_max = NA
+          y_max = NA
+        }
+        else
+        {
+          if (min_lag_x + lag > min_lag_y)
+            y_min = min_lag_x + lag
+          else
+            x_min = min_lag_y - lag
+          if (max_lag_x + lag < max_lag_y)
+            y_max = max_lag_x + lag
+          else
+            x_max = max_lag_y - lag
+        }
+        return (list(
+          x = c(p$x, x_min, x_max, NA),
+          y = c(p$y, y_min, y_max, NA)
+        ))
+      },
+      lag_jk,
+      list(x = c(), y = c()))
+    }
+
+
+
+  get_xy_lags <-
+    function(min_lag_x,
+             max_lag_x,
+             min_lag_y,
+             max_lag_y,
+             lag_j,
+             lag_k,
+             lag_jk)
+    {
+      diagxy = diag_lag(min_lag_x, max_lag_x, min_lag_y, max_lag_y,  lag_jk)
+      return (list(
+        x = c(rep(
+          only_in_range(min_lag_x, max_lag_x, lag_j), each = 3
+        ),
+        rep(
+          c(min_lag_x, max_lag_x, NA), length(lag_k)
+        ),
+        diagxy$x),
+        y =
+          c(rep(
+            c(min_lag_y, max_lag_y, NA), length(lag_j)
+          ),
+          rep(
+            only_in_range(min_lag_y, max_lag_y, lag_k), each = 3
+          ),
+          diagxy$y)
+      ))
+    }
+
+  gcc$shared_peaks_for_plot = Reduce(
+    function(p, i)
+      Reduce(
+        function(pi, j)
+          Reduce(function(pij, k)
+          {
+            lag_j = gcc$gcc_peaks_data[[i]][[j - i]]$d$lags
+            lag_k = gcc$gcc_peaks_data[[i]][[k - i]]$d$lags
+            lag_jk = gcc$gcc_peaks_data[[j]][[k - j]]$d$lags
+
+            lag_value_j = gcc$gcc_peaks_data[[i]][[j - i]]$d$lag_value
+            lag_value_k = gcc$gcc_peaks_data[[i]][[k - i]]$d$lag_value
+            lag_value_jk = gcc$gcc_peaks_data[[j]][[k - j]]$d$lag_value
+
+            lag_shared_i_j = gcc$shared_peaks$d[[paste0("lag_", i, "_", j)]]
+            lag_shared_i_k = gcc$shared_peaks$d[[paste0("lag_", i, "_", k)]]
+
+            lag_value_shared_i_j = gcc$shared_peaks$d[[paste0("values_", i, "_", j)]]
+            lag_value_shared_i_k = gcc$shared_peaks$d[[paste0("values_", i, "_", k)]]
+            lag_value_shared_j_k = gcc$shared_peaks$d[[paste0("values_", j, "_", k)]]
+
+            min_lag_x = min(lag_j)
+            max_lag_x = max(lag_j)
+
+            min_lag_y = min(lag_k)
+            max_lag_y = max(lag_k)
+
+            min_shared_lag_x = min(lag_shared_i_j)
+            max_shared_lag_x = max(lag_shared_i_j)
+
+            min_shared_lag_y = min(lag_shared_i_k)
+            max_shared_lag_y = max(lag_shared_i_k)
+
+
+
+
+
+            label_ijk = paste0(gcc$labels[i], "_",
+                               gcc$labels[j], "_",
+                               gcc$labels[k])
+            label_i = gcc$labels[i]
+            label_j = gcc$labels[j]
+            label_k = gcc$labels[k]
+            label_i_j = paste0(i, "_", j, "_", gcc$labels[i], "_",
+                               gcc$labels[j])
+            label_i_k = paste0(i, "_", k, "_", gcc$labels[i], "_",
+                               gcc$labels[k])
+            label_j_k = paste0(j, "_", k, "_", gcc$labels[j], "_",
+                               gcc$labels[k])
+
+
+            axis = c(rep("i_j", length(lag_j) * 3),
+                     rep("i_k", length(lag_k) * 3),
+                     rep("j_k", length(lag_jk) * 3))
+
+            axis_labels = c(rep(label_i_j, length(lag_j) * 3),
+                            rep(label_i_k, length(lag_k) *
+                                  3),
+                            rep(label_j_k, length(lag_jk) *
+                                  3))
+
+            # x_lags = c(rep(lag_j, each = 3),
+            #
+            #            rep(c(min_lag, max_lag, NA), length(lag_k)),
+            #            diag_lag_x(min_lag, max_lag, lag_jk))
+            #
+            # y_lags = c(rep(c(min_lag, max_lag, NA), length(lag_j)),
+            #            rep(lag_k, each = 3),
+            #            diag_lag_y(min_lag, max_lag, lag_jk))
+            value_lags = c(rep(lag_value_j, each = 3),
+                           rep(lag_value_k, each = 3),
+                           rep(lag_value_jk, each = 3))
+
+            xy_lags_all = get_xy_lags(min_lag, max_lag, min_lag, max_lag, lag_j , lag_k, lag_jk)
+            xy_lags_set = get_xy_lags(min_lag_x,
+                                      max_lag_x,
+                                      min_lag_y,
+                                      max_lag_y,
+                                      lag_j ,
+                                      lag_k,
+                                      lag_jk)
+            xy_lags_shared = get_xy_lags(
+              min_shared_lag_x,
+              max_shared_lag_x,
+              min_shared_lag_y,
+              max_shared_lag_y,
+              lag_j ,
+              lag_k,
+              lag_jk
+            )
+
+
+
+            d_lines = data.frame(
+              axis = axis,
+
+              axis_labels = axis_labels,
+
+              x_lags_all = xy_lags_all$x ,
+              y_lags_all = xy_lags_all$y,
+
+              x_lags_set = xy_lags_set$x,
+              y_lags_set = xy_lags_set$y,
+
+              x_lags_shared = xy_lags_shared$x,
+              y_lags_shared = xy_lags_shared$y,
+
+              value_lags = value_lags,
+              ijk = paste0(gcc$labels[i], "_",
+                           gcc$labels[j], "_",
+                           gcc$labels[k]),
+              i = gcc$labels[i],
+              j = gcc$labels[j],
+              k = gcc$labels[k],
+              i_j = paste0(i, "_", j, "_", gcc$labels[i], "_",
+                           gcc$labels[j]),
+              i_k = paste0(i, "_", k, "_", gcc$labels[i], "_",
+                           gcc$labels[k])
+
+            )
+
+            d_shared = data.frame(
+              lag_shared_i_j = lag_shared_i_j,
+              lag_shared_i_k = lag_shared_i_k,
+
+              lag_value_shared_i_j = lag_value_shared_i_j,
+              lag_value_shared_i_k = lag_value_shared_i_k,
+              lag_value_shared_j_k = lag_value_shared_j_k,
+
+              ijk = paste0(gcc$labels[i], "_",
+                           gcc$labels[j], "_",
+                           gcc$labels[k]),
+              i = gcc$labels[i],
+              j = gcc$labels[j],
+              k = gcc$labels[k],
+              i_j = paste0(i, "_", j, "_", gcc$labels[i], "_",
+                           gcc$labels[j]),
+              i_k = paste0(i, "_", k, "_", gcc$labels[i], "_",
+                           gcc$labels[k])
+
+            )
+
+            return(list(
+              d_lines = rbind(pij$d_lines, d_lines),
+              d_shared = rbind(pij$d_shared, d_shared)
+            ))
+          },
+          (j + 1):n_receptors,
+          pi),
+        (i + 1):(n_receptors - 1),
+        p
+      ),
+    1:(n_receptors - 2),
+    list(d_lines = data.frame(), d_shared = data.frame())
+  )
+
+  return (gcc)
+}
+
+
+plot_shared_peaks <- function(gcc,
+                              t_start = NULL,
+                              t_end = NULL,
+                              min_freq = NULL,
+                              max_freq = NULL,
+                              lag_window_in_meters,
+                              keep_if_z_is_greater_than = 5,
+                              keep_the_best_n = 5,
+                              velocity_of_sound = 334,
+                              freq_filter = F)
+{
+  if (!"shared_peaks_for_plot" %in% names(gcc))
+    gcc <- shared_peaks_data_for_plot(
+      gcc,
+      t_start = t_start,
+      t_end = t_end,
+      min_freq = min_freq,
+      max_freq = max_freq,
+      lag_window_in_meters = lag_window_in_meters,
+      keep_if_z_is_greater_than = keep_if_z_is_greater_than,
+      keep_the_best_n = keep_the_best_n,
+      velocity_of_sound = velocity_of_sound,
+      freq_filter = freq_filter
+    )
+  print(
+    ggplot(gcc$shared_peaks_for_plot$d_lines) +
+      geom_path(aes(x_lags_all, y_lags_all), alpha = 0.1) +
+      facet_grid(i_k ~ i_j, scales = "free") + scale_color_distiller(palette = "Spectral") +
+      geom_point(
+        data = gcc$shared_peaks_for_plot$d_shared,
+        aes(x = lag_shared_i_j, y = lag_shared_i_k)
+      )
+  )
+  print(
+    ggplot(gcc$shared_peaks_for_plot$d_lines) +
+      geom_path(aes(x_lags_set, y_lags_set), alpha = 0.1) +
+      facet_grid(i_k ~ i_j, scales = "free") + scale_color_distiller(palette = "Spectral") +
+      geom_point(
+        data = gcc$shared_peaks_for_plot$d_shared,
+        aes(x = lag_shared_i_j, y = lag_shared_i_k)
+      )
+  )
+  print(
+    ggplot(gcc$shared_peaks_for_plot$d_lines) +
+      geom_path(aes(x_lags_shared, y_lags_shared), alpha = 0.1) +
+      facet_grid(i_k ~ i_j, scales = "free") + scale_color_distiller(palette = "Spectral") +
+      geom_point(
+        data = gcc$shared_peaks_for_plot$d_shared,
+        aes(x = lag_shared_i_j, y = lag_shared_i_k)
+      )
+  )
+
+}
 
 
 filter_by_lag <- function(fft1, fft2, lag, lag_error, fs)
@@ -1266,6 +1599,8 @@ cross_plot <-
       ))
 
   }
+
+
 
 
 

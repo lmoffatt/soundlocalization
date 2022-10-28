@@ -19,6 +19,7 @@ library(soundlocalization)
 library(ggplot2)
 library(lubridate)
 library(tidyverse)
+library(gglasso)
 ```
 
 # this file contains the steps necessary for align files. 
@@ -110,7 +111,7 @@ gphase_filter_peaks_data(gcc_data,lag_window_in_meters=8000,keep_the_best_n =200
 
 
 ```{r}
-lasso_on_peaks(rp)->lp
+obtain_shared_peaks(rp)->lp
 ```
 
 
@@ -119,45 +120,11 @@ str(lp)
 ```
 
 ```{r}
-library(gglasso)
-gcc_phase_data_for_plot(gcc_data,lag_window_in_meters=8000,max_points=100,remove_if_z_is_greater_than = 5)->rpp
-
-rpp$gcc_phase_data_for_plot%>%filter(((i=="Andrea")&(j=="Joaco"))|((i=="Andrea")&(j=="Candela"))|(i=="Joaco")&(j=="Candela"))->Y
-build_ABCij_to_ABi_transform_matrix(nrow(Y)/3)->A
-```
-
-
-```{r}
-#perform k-fold cross-validation to find optimal lambda value
-cv_model <- cv.gglasso(x = A$A,y =  Y$std_lag_values, group = A$xy_group)
-```
-
-
-```{r}
-#find optimal lambda value that minimizes test MSE
-best_lambda <- cv_model$lambda.min
-best_lambda
-```
-
-
-```{r}
-#produce plot of test MSE by lambda value
-plot(cv_model) 
-```
-```{r}
-#find coefficients of best model
-best_model <- gglasso(x = A$A,y =  Y$std_lag_values, group = A$xy_group)
-coef(best_model)
+shared_peaks_data_for_plot(lp)->lp
 
 ```
 
 ```{r}
-gcc_phase_data_for_source_reconstruction_plot(gcc_data,lambda=10,lag_window_in_meters=8000,        max_points=10,keep_the_best_n =200,keep_if_z_is_greater_than = 100)->r_source
-```
-
-
-
-```{r}
-gcc_phase_source_plot(r_source)
+plot_shared_peaks(lp)
 ```
 
