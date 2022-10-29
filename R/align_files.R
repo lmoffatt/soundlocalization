@@ -10,13 +10,14 @@
 apply_hanning_window <- function(equalized_signal)
 {
   is = equalized_signal$i_start
-  ie = equalized_signal$i_end
+  ie = is+equalized_signal$nsamples-1
   nsamples = ie[1] - is[1] + 1
   stopifnot(nsamples>2)
 
 #  hn = e1071::hanning.window(nsamples)
   hn = seewave::ftwindow(nsamples,wn="hanning")
-  equalized_signal$signal_for_fft = lapply(equalized_signal$signal, function(x)
+  equalized_signal$filtered_by="apply_hanning_window"
+  equalized_signal$signal_for_fft = lapply(equalized_signal$framed_raw_signal, function(x)
     x * hn)
   equalized_signal
 }
@@ -165,13 +166,12 @@ optimize_delays_from_ccf <- function(data, maxs_ccf, max_lag_by_row)
 #'
 indexes_for_same_length <- function(signals)
 {
-  stopifnot(length(unique(signals$fs))==1)
   nsamples = signals[["nsamples"]]
   min_n = floor(min(nsamples)/2)*2
   diff_n = nsamples - min_n
   i_start = floor(diff_n / 2) + 1
   i_end = i_start + min_n - 1
-  list(i_start = i_start, i_end = i_end)
+  list(i_start = i_start, nsamples = min_n)
 }
 
 
@@ -194,28 +194,48 @@ indexes_for_same_length <- function(signals)
 #' indexes=indexes_for_same_length(waveList)
 #' aligned=apply_frame(waveList,indexes)
 #'
-apply_frame <- function(signals, indexes)
+apply_frame <- function(rec, framed_by,i_start,nsamples)
 {
-  is = indexes$i_start
-  ie = indexes$i_end
+  is = i_start
+  ie = i_start +nsamples -1
 
-  s = signals$signal
-  nsamples = ie[1] - is[1] + 1
+  s = rec$raw_signal
   stopifnot(nsamples%%2==0)
+
   signal = lapply(1:length(s), function(i)
     s[[i]][is[min(i,length(is))]:ie[min(i,length(ie))]])
 
-  out  = signals
-  out$i_start = is
-  out$i_end = ie
-  out$nsamples=1+ie-is
-  out$signal = signal
-  out$duration = out$nsamples/out$fs
-  out$interval = interval(out$time,
-                          out$time+microseconds(out$duration*1e6) )
 
-  out
+
+  nsamples=1+ie-is
+  duration=nsamples/rec$fs
+  interval=interval(rec$time,
+                    rec$time+microseconds(duration*1e6) )
+
+  out=extract_raw_recording(rec)
+  out$framed_by=framed_by
+  out$i_start=is
+  out$nsamples=nsamples
+  out$framed_raw_signal=signal
+  out$duration=duration
+  out$iterval=interval
+
+  return(out)
 }
+
+
+truncate_to_same_length<-function(rec)
+{
+  nsamples = rec[["raw_nsamples"]]
+  min_n = floor(min(nsamples)/2)*2
+  diff_n = nsamples - min_n
+  i_start = floor(diff_n / 2) + 1
+  return (apply_frame(rec,framed_by = "truncate_to_same_length",i_start = i_start,nsamples = min_n))
+
+}
+
+
+
 
 
 #' convert an index of a ccf to the corresponding lag

@@ -111,22 +111,22 @@ lags=-(nsamples/2):(nsamples/2-1)/fs
 gcc=gcc_phase(y0+rnorm(nsamples)*0.001+y01,y1+rnorm(nsamples)*0.0001+y11,hanning = T)
 dgcc=Igcc_phase(y0+rnorm(nsamples)*0.001+y01,y1+rnorm(nsamples)*0.0001+y11,hanning = T)
 
-ggplot()+geom_line(aes(x=lags,y = gcc))+scale_x_continuous(limits=c(min(dt0,dt1)-0.1*abs(dt0-dt1), max(dt0,dt1)+0.1*abs(dt0-dt1)))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=lags,y = gcc))+ggplot2::scale_x_continuous(limits=c(min(dt0,dt1)-0.1*abs(dt0-dt1), max(dt0,dt1)+0.1*abs(dt0-dt1)))
 
-ggplot()+geom_line(aes(x=lags,y = gcc))+scale_x_continuous(limits=c(min(dt0,dt1)-5*abs(dt0-dt1), max(dt0,dt1)+5*abs(dt0-dt1)))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=lags,y = gcc))+ggplot2::scale_x_continuous(limits=c(min(dt0,dt1)-5*abs(dt0-dt1), max(dt0,dt1)+5*abs(dt0-dt1)))
 
-ggplot()+geom_line(aes(x=lags,y = gcc))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=lags,y = gcc))
 
-ggplot()+geom_line(aes(x=lags,y = dgcc))+scale_x_continuous(limits=c(min(dt0,dt1)-0.1*abs(dt0-dt1), max(dt0,dt1)+0.1*abs(dt0-dt1)))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=lags,y = dgcc))+ggplot2::scale_x_continuous(limits=c(min(dt0,dt1)-0.1*abs(dt0-dt1), max(dt0,dt1)+0.1*abs(dt0-dt1)))
 
-ggplot()+geom_line(aes(x=lags,y = dgcc))+scale_x_continuous(limits=c(min(dt0,dt1)-5*abs(dt0-dt1), max(dt0,dt1)+5*abs(dt0-dt1)))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=lags,y = dgcc))+ggplot2::scale_x_continuous(limits=c(min(dt0,dt1)-5*abs(dt0-dt1), max(dt0,dt1)+5*abs(dt0-dt1)))
 
-ggplot()+geom_line(aes(x=lags,y = dgcc))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=lags,y = dgcc))
 
-ggplot()+geom_line(aes(x=t,y = y0))
-ggplot()+geom_line(aes(x=t,y = y01))
-ggplot()+geom_point(aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y0))[1:(nsamples/2)]))
-ggplot()+geom_point(aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y01))[1:(nsamples/2)]))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=t,y = y0))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=t,y = y01))
+ggplot2::ggplot()+ggplot2::geom_point(ggplot2::aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y0))[1:(nsamples/2)]))
+ggplot2::ggplot()+ggplot2::geom_point(ggplot2::aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y01))[1:(nsamples/2)]))
 
 
 ```
@@ -160,14 +160,14 @@ lags=-(nsamples/2):(nsamples/2-1)/fs
 y11=simulate_harmonic_signal(fs=44100,trace_duration = 1, fundamental_freq = f1, harmonic_amplitudes = A1,tstart = tstart1+dt1,t_end=tstart1+dur1+dt1)
 lags=-(nsamples/2):(nsamples/2-1)/fs
 gcc=gcc_phase(y0+rnorm(nsamples)*0.001+y01,y1+rnorm(nsamples)*0.0001+y11,hanning = F)
-ggplot()+geom_line(aes(x=lags,y = gcc))+scale_x_continuous(limits=c(min(dt0,dt1)-0.1*abs(dt0-dt1), max(dt0,dt1)+0.1*abs(dt0-dt1)))
-ggplot()+geom_line(aes(x=lags,y = gcc))+scale_x_continuous(limits=c(min(dt0,dt1)-5*abs(dt0-dt1), max(dt0,dt1)+5*abs(dt0-dt1)))
-#ggplot()+geom_line(aes(x=lags,y = gcc))+scale_x_continuous(limits=c(0,0.03))
-ggplot()+geom_line(aes(x=lags,y = gcc))
-ggplot()+geom_line(aes(x=t,y = y0))
-ggplot()+geom_line(aes(x=t,y = y01))
-ggplot()+geom_point(aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y0))[1:(nsamples/2)]))
-ggplot()+geom_point(aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y01))[1:(nsamples/2)]))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=lags,y = gcc))+ggplot2::scale_x_continuous(limits=c(min(dt0,dt1)-0.1*abs(dt0-dt1), max(dt0,dt1)+0.1*abs(dt0-dt1)))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=lags,y = gcc))+ggplot2::scale_x_continuous(limits=c(min(dt0,dt1)-5*abs(dt0-dt1), max(dt0,dt1)+5*abs(dt0-dt1)))
+#ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=lags,y = gcc))+ggplot2::scale_x_continuous(limits=c(0,0.03))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=lags,y = gcc))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=t,y = y0))
+ggplot2::ggplot()+ggplot2::geom_line(ggplot2::aes(x=t,y = y01))
+ggplot2::ggplot()+ggplot2::geom_point(ggplot2::aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y0))[1:(nsamples/2)]))
+ggplot2::ggplot()+ggplot2::geom_point(ggplot2::aes(x=1:(nsamples/2)/nsamples*fs,y=abs(fft(y01))[1:(nsamples/2)]))
 
 
 ```

@@ -25,8 +25,6 @@ library(gglasso)
 # this file contains the steps necessary for align files. 
 
 
-
-
 Lets do by example. 
 Here is a list of recordings taken on a line array of approx 4 m between receptors. 
 
@@ -56,23 +54,32 @@ recordings<-recordings(files = files,
                        labels = labels,
                        geo_locations = geo_locations, 
                        time_of_recording = time_of_recording)
-
-
-apply_frame(recordings,indexes_for_same_length(recordings))->e_recordings
-gcc_phase_data(e_recordings,
-           max_freq=10000,
-           remove_if_z_is_greater_than=5,
-
-           freq_filter = F)->gcc_data
-
-str(gcc_data)
+str(recordings)
 ```
 
 
 ```{r}
+truncate_to_same_length(recordings)->e_recordings
+str(e_recordings$i_start)
+str(e_recordings$nsamples)
+str(e_recordings$framed_raw_signal)
+
+```
+
+
+```{r}
+gcc_phase_data(recordings,max_freq=10000,remove_if_z_is_greater_than=5,freq_filter = F)->gcc_data
+
+
+```
+
+```{r}
+str(gcc_data)
+```
+
+```{r}
 
 data_for_plot_gcc_phase(gcc_data,lag_window_in_meters = 8000, max_points =1000)->gcc_data_for_plot
-str(gcc_data_for_plot)
 
 ```
 ```{r}
@@ -96,11 +103,11 @@ gcc_phase_data_for_lasso_source_reconstruction_plot(gcc_data,lag_window_in_meter
 ```
 
 ```{r}
-ggplot(r_source$gcc_data_for_source_plot) + geom_raster(aes(x = lag_i_j, y = lag_i_k, fill = lag_values)) + geom_point(aes(x= lag_i_j, y = lag_i_k, size = source_nvalues_AB),color='red',alpha=0.2)+ geom_point(aes(x= lag_i_j, y = lag_i_k, size = source_nvalues_AC),color='green',alpha=0.2)+ geom_point(aes(x= lag_i_j, y = lag_i_k, size = source_nvalues_BC),color='yellow',alpha=0.2)+ facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral")
+ggplot2::ggplot(r_source$gcc_data_for_source_plot) + ggplot2::geom_raster(ggplot2::aes(x = lag_i_j, y = lag_i_k, fill = lag_values)) + ggplot2::geom_point(ggplot2::aes(x= lag_i_j, y = lag_i_k, size = source_nvalues_AB),color='red',alpha=0.2)+ ggplot2::geom_point(ggplot2::aes(x= lag_i_j, y = lag_i_k, size = source_nvalues_AC),color='green',alpha=0.2)+ ggplot2::geom_point(ggplot2::aes(x= lag_i_j, y = lag_i_k, size = source_nvalues_BC),color='yellow',alpha=0.2)+ facet_grid(i_k ~ i_j) + ggplot2::scale_fill_distiller(palette = "Spectral")
 ```
 
 ```{r}
-gcc_phase_source_plot(r_source)
+plot_peaks_groups_by_Lasso(r_source)
 ```
 
 
@@ -126,5 +133,11 @@ shared_peaks_data_for_plot(lp)->lp
 
 ```{r}
 plot_shared_peaks(lp)
+```
+```{r}
+gphase_filter_peaks_data(gcc_data,lag_window_in_meters=8000,keep_the_best_n =1000,keep_if_z_is_greater_than = 100)->rp_500
+plot_shared_peaks(rp_500)
+
+
 ```
 

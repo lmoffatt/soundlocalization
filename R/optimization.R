@@ -70,7 +70,7 @@ get_receptorList <- function(labels,
 frame_to_signal_fft <- function(rec, all_frames)
 {
   fs = rec$fs[1]
-  all_frames$signal <-
+  all_frames$aligned_signal <-
 
     lapply(1:length(all_frames$t_start)
            , function (i)
@@ -82,7 +82,7 @@ frame_to_signal_fft <- function(rec, all_frames)
 
              i_end = i_start + nsamples - 1
              hn = e1071::hanning.window(nsamples)
-             lapply(rec$signal, function(s) s[i_start:i_end] * hn)
+             lapply(rec$framed_raw_signal, function(s) s[i_start:i_end] * hn)
            })
   all_frames$w <- lapply(1:length(all_frames$t_start), function (i)
   {

@@ -95,21 +95,21 @@ frequency_plot <- function(signal,
 
   )
   d$dB = 10 * log10(abs(d$fft) / max(abs(d$fft)))
-  if (scale_x_log)
+  if (ggplot2::scale_x_log)
   {
     ggplot2::ggplot(d) +
-      ggplot2::geom_line(aes(freq, dB, color = file), alpha = alpha) +
-      scale_x_log10() +
-      facet_wrap(~ file, scales = "free")
+      ggplot2::geom_line(ggplot2::aes(freq, dB, color = file), alpha = alpha) +
+      ggplot2::scale_x_log10() +
+      ggplot2::facet_wrap(~ file, scales = "free")
   }
   else if (dB)
     ggplot2::ggplot(d) +
-    ggplot2::geom_line(aes(freq, dB, color = file), alpha = alpha) +
-    facet_wrap(~ file, scales = "free")
+    ggplot2::geom_line(ggplot2::aes(freq, dB, color = file), alpha = alpha) +
+    ggplot2::facet_wrap(~ file, scales = "free")
   else
     ggplot2::ggplot(d) +
-    ggplot2::geom_line(aes(freq, abs(fft), color = file), alpha = alpha) +
-    facet_wrap(~ file, scales = "free")
+    ggplot2::geom_line(ggplot2::aes(freq, abs(fft), color = file), alpha = alpha) +
+    ggplot2::facet_wrap(~ file, scales = "free")
 
 }
 
@@ -153,7 +153,7 @@ sound_plot <-
                    receptor = receptor)
 
     ggplot2::ggplot(d) +
-      ggplot2::geom_line(aes(t, signal), alpha = alpha) +
+      ggplot2::geom_line(ggplot2::aes(t, signal), alpha = alpha) +
       ggplot2::facet_wrap(~ receptor)
 
 
@@ -216,8 +216,7 @@ spectro_data <-
     fs = rec$fs[1]
     ns = floor((end - start) * fs / 2) * 2
     i_s = floor(start * fs) + 1
-    rec = apply_frame(rec, list(i_start = i_s,
-                                i_end = i_s + ns + 1))
+    rec = apply_frame(rec,framed_by = "spectro_data,",i_start = i_s,nsamples = ns)
     wl_points = 512
     if (!is.null(window_length_meters))
       wl_points = 2 ^ ceiling(log(window_length_meters / velocity_of_sound *
@@ -290,10 +289,10 @@ spectro_plot_luc <-
     )
     d %>% dplyr::filter(f < max_freq) %>%
       #  dplyr::filter(dB > min_dB) %>%
-      ggplot() +
-      geom_raster(aes(x = t, y = f, fill = dB), interpolate = T) +
-      facet_wrap(~ receptor) +
-      scale_fill_distiller(palette = "Spectral", limits =
+      ggplot2::ggplot() +
+      ggplot2::geom_raster(ggplot2::aes(x = t, y = f, fill = dB), interpolate = T) +
+      ggplot2::facet_wrap(~ receptor) +
+      ggplot2::scale_fill_distiller(palette = "Spectral", limits =
                              c(min_dB, 0))
 
 
@@ -393,8 +392,9 @@ apply_filter <- function(rec, min_freq, max_freq)
   f = rec$fs[1]
   rec$min_freq = min_freq
   rec$max_freq = max_freq
+  rec$filtered_by="apply_filter"
   rec$signal_for_fft =
-    lapply(rec$signal,
+    lapply(rec$framed_raw_signal,
            function(x)
              seewave::ffilter(x, f, from = min_freq, to = max_freq)[, 1])
   return(rec)
@@ -409,7 +409,11 @@ gcc_phase_data <-
            max_freq = NULL,
            remove_if_z_is_greater_than = 5,
            freq_filter = F)
+
   {
+    if (!"duration"%in% names(rec))
+      rec=truncate_to_same_length(rec)
+
     if (!(is.null(t_start) & is.null(t_end)))
     {
       if (is.null(t_start))
@@ -418,9 +422,9 @@ gcc_phase_data <-
         t_end = rec$duration
       i_start = floor(t_start * rec$fs[1]) + 1
       nsamples = floor((t_end - t_start) * rec$fs[1] / 2) * 2
-      i_end = i_start + nsamples - 1
       rec <- rec %>%
-        apply_frame(list(i_start = i_start, i_end = i_end))
+        apply_frame(framed_by = "gcc_phase_data",
+                    i_start = i_start, nsamples = nsamples)
     }
     if (!(is.null(min_freq) & is.null(max_freq)))
     {
@@ -474,8 +478,8 @@ data_for_plot_gcc_phase <-
               function(pi, j)
               {
                 d <- data.frame(lag_value = gcc$gcc_phase_std[[i]][[j]]$z[i_lags],
-                                lags = lags_f) %>% group_by(lags) %>%
-                  summarise(lag_value = match.fun(decimating_operation)(lag_value))
+                                lags = lags_f) %>% dplyr::group_by(lags) %>%
+                  dplyr::summarise(lag_value = match.fun(decimating_operation)(lag_value))
 
                 rbind(
                   pi,
@@ -561,11 +565,11 @@ gcc_phase_plot <-
         freq_filter = freq_filter
       )
     }
-    ggplot(rec$gcc_phase_data_for_plot) + geom_line(aes(
+    ggplot2::ggplot(rec$gcc_phase_data_for_plot) + ggplot2::geom_line(ggplot2::aes(
       x = lags,
       y = std_lag_values,
       color = paste0(i, j)
-    )) + facet_grid(i ~ j, scales = "free", space = "free")
+    )) + ggplot2::facet_grid(i ~ j, scales = "free", space = "free")
   }
 
 
@@ -648,7 +652,7 @@ gcc_phase_data_for_tri_plot <-
                             lag_value_k = gcc$gcc_phase_std[[i]][[k - i]]$z[i_lags_2],
                             lag_value_jk = gcc$gcc_phase_std[[j]][[k - j]]$z[i_lags_2],
                             lags = lags_2f
-                          ) %>% group_by(lags) %>% summarise(
+                          ) %>% dplyr::group_by(lags) %>% dplyr::summarise(
                             lag_value_j = max(lag_value_j),
                             lag_value_k = max(lag_value_k),
                             lag_value_jk = max(lag_value_jk)
@@ -732,9 +736,9 @@ gcc_phase_tri_plot <-
       )
 
 
-    ggplot(gcc$gcc_data_for_tri_plot) +
-      geom_raster(aes(x = lag_i_j, y = lag_i_k, fill = lag_values)) +
-      facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral")
+    ggplot2::ggplot(gcc$gcc_data_for_tri_plot) +
+      ggplot2::geom_raster(ggplot2::aes(x = lag_i_j, y = lag_i_k, fill = lag_values)) +
+      ggplot2::facet_grid(i_k ~ i_j) + ggplot2::scale_fill_distiller(palette = "Spectral")
   }
 
 
@@ -772,275 +776,8 @@ Tri_Delay_to_gcc_phat_matrix <- function(number_of_lags)
 }
 
 
-gcc_phase_data_for_lasso_source_reconstruction_plot <-
-  function(gcc,
-           t_start = NULL,
-           t_end = NULL,
-           min_freq = NULL,
-           max_freq = NULL,
-           lambda,
-           lag_window_in_meters,
-           max_points,
-           keep_if_z_is_greater_than = 5,
-           keep_the_best_n = 5,
-           velocity_of_sound = 334,
-           freq_filter = F)
-  {
-    if (!"gcc_phase_std" %in% names(gcc))
-      gcc <- gcc_phase_data(
-        rec = gcc,
-        t_start = t_start,
-        t_end = t_end,
-        min_freq = min_freq,
-        max_freq = max_freq,
-        remove_if_z_is_greater_than = keep_if_z_is_greater_than,
-        freq_filter = freq_filter
-      )
-
-    lag_max = ceiling(lag_window_in_meters / velocity_of_sound * gcc$fs[1])
-    gcc$lag_max = lag_max
-
-    nsamples = length(gcc$gcc_phase[[1]][[1]])
-    stopifnot("the sampled frame is wider than the lag window" = lag_max * 2 < nsamples)
-
-    lags_1 = ((-lag_max):(lag_max - 1)) / gcc$fs[1]
-
-    factor = ceiling(lag_max / max_points)
-
-    lag_max_f = ceiling(lag_max / factor)
-
-    lags_1f = floor(lags_1 * gcc$fs[1] / factor) * factor / gcc$fs[1]
 
 
-    i_lags_1 = c((-lag_max):0 + nsamples, 1:(lag_max  - 1))
-
-
-    n_1_lags = length(unique(lags_1f))
-    n_receptors = length(gcc$labels)
-
-
-
-    i_lags = 1:n_1_lags
-
-    lags = ((-lag_max_f):(lag_max_f - 1)) / gcc$fs[1] * factor
-
-    lags_j = lags
-    lags_k = lags
-
-
-    i_j_lags = Reduce(function(prev, x)
-      c(prev, rep(x, length(i_lags))), x = i_lags, init = c())
-    i_k_lags = rep(i_lags, length(i_lags))
-
-    lags_ij = Reduce(function(prev, x)
-      c(prev, rep(x, length(lags))), x = lags, init = c())
-    lags_ik = rep(lags, length(lags))
-
-    j_k_lags = ((lags_ik - lags_ij) * gcc$fs[1] / factor) + n_1_lags / 2 +
-      1
-
-    j_k_lags[(j_k_lags < 1) | (j_k_lags > n_1_lags)] <- NA
-
-
-    gcc$gcc_data_for_source_plot = Reduce(function(p, i)
-      rbind(p,
-            Reduce(
-              function(pi, j)
-                rbind(pi,
-                      Reduce(
-                        function(pij, k)
-                        {
-                          d <- data.frame(
-                            lag_value_j = gcc$gcc_phase_std[[i]][[j - i]]$z[i_lags_1],
-                            lag_value_k = gcc$gcc_phase_std[[i]][[k - i]]$z[i_lags_1],
-                            lag_value_jk = gcc$gcc_phase_std[[j]][[k - j]]$z[i_lags_1],
-                            lags = lags_1f
-                          ) %>% group_by(lags) %>% summarise(
-                            lag_value_j = max(lag_value_j),
-                            lag_value_k = max(lag_value_k),
-                            lag_value_jk = max(lag_value_jk)
-                          )
-                          threshold_j = sort(d$lag_value_j, decreasing = T)[keep_the_best_n]
-                          threshold_k = sort(d$lag_value_k, decreasing = T)[keep_the_best_n]
-                          threshold_jk = sort(d$lag_value_jk, decreasing = T)[keep_the_best_n]
-
-
-                          d$lag_value_j[(d$lag_value_j < keep_if_z_is_greater_than) &
-                                          (d$lag_value_j < threshold_j)] <-
-                            0
-                          d$lag_value_k[(d$lag_value_k < keep_if_z_is_greater_than) &
-                                          (d$lag_value_k < threshold_k)] <-
-                            0
-                          d$lag_value_jk[(d$lag_value_jk < keep_if_z_is_greater_than) &
-                                           (d$lag_value_jk < threshold_jk)] <-
-                            0
-                          Y <-
-                            c(d$lag_value_j, d$lag_value_k, d$lag_value_jk)
-                          build_ABCij_to_ABi_transform_matrix(length(d$lag_value_j)) ->
-                            A
-                          cv_model <-
-                            gglasso(
-                              x = A$A,
-                              y =  Y,
-                              group = A$xy_group,
-                              lambda = lambda
-                            )
-                          x <- as.vector(cv_model$beta[, 1])
-
-                          x[x == 0] <- NA
-                          n2 = length(i_j_lags)
-                          ABij <- x[seq(from = 1,
-                                        by = 3,
-                                        to = n2 * 3)]
-                          ACij <- x[seq(from = 2,
-                                        by = 3,
-                                        to = n2 * 3)]
-                          BCij <- x[seq(from = 3,
-                                        by = 3,
-                                        to = n2 * 3)]
-
-
-
-
-                          rbind(
-                            pij,
-                            data.frame(
-                              lag_i_j = lags_ij,
-                              lag_i_k = lags_ik,
-                              lag_values = (d$lag_value_j[i_j_lags] +
-                                              d$lag_value_k[i_k_lags] +
-                                              d$lag_value_jk[j_k_lags]),
-                              source_values_AB = ABij,
-                              source_values_AC = ACij,
-                              source_values_BC = BCij,
-                              source_nvalues_AB = ABij / max(ABij, na.rm = T),
-                              source_nvalues_AC = ACij / max(ACij, na.rm = T),
-                              source_nvalues_BC = BCij / max(BCij, na.rm = T),
-                              ijk = paste0(gcc$labels[i], "_",
-                                           gcc$labels[j], "_",
-                                           gcc$labels[k]),
-                              i = gcc$labels[i],
-                              j = gcc$labels[j],
-                              k = gcc$labels[k],
-                              i_j = paste0(i, "_", j, "_", gcc$labels[i], "_",
-                                           gcc$labels[j]),
-                              i_k = paste0(i, "_", k, "_", gcc$labels[i], "_",
-                                           gcc$labels[k])
-
-                            )
-                          )
-                        },
-                        (j + 1):n_receptors,
-                        data.frame()
-                      )),
-              (i + 1):(n_receptors - 1),
-              data.frame()
-            )),
-      1:(n_receptors - 2),
-      data.frame())
-
-    return(gcc)
-  }
-
-
-
-gcc_phase_source_plot <-
-  function(gcc,
-           t_start = NULL,
-           t_end = NULL,
-           min_freq = NULL,
-           max_freq = NULL,
-           lag_window_in_meters = NULL,
-           max_points = NULL,
-           keep_if_z_is_greater_than = 4,
-           keep_the_best_n = 5,
-           velocity_of_sound = 334,
-           freq_filter = F)
-  {
-    if (!"gcc_data_for_source_plot" %in% names(gcc))
-      gcc = gcc_phase_data_for_source_reconstruction_plot(
-        gcc = gcc,
-        t_start = t_start,
-        t_end = t_end,
-        min_freq = min_freq,
-        max_freq = max_freq,
-        lag_window_in_meters = lag_window_in_meters,
-        max_points = max_points,
-        keep_if_z_is_greater_than = keep_if_z_is_greater_than,
-        keep_the_best_n = keep_the_best_n,
-        velocity_of_sound = velocity_of_sound,
-        freq_filter = freq_filter
-      )
-
-
-
-    print(
-      ggplot(r_source$gcc_data_for_source_plot) +
-        geom_raster(aes(
-          x = lag_i_j, y = lag_i_k, fill = lag_values
-        )) +
-        geom_point(
-          data = filter(
-            r_source$gcc_data_for_source_plot,
-            !is.na(source_nvalues_AB)
-          ),
-          aes(
-            x = lag_i_j,
-            y = lag_i_k,
-            size = source_nvalues_AB,
-            color = source_nvalues_AB
-          ),
-          alpha = 0.2
-        ) +
-        facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral") +
-        scale_color_distiller(palette = "Spectral")
-    )
-    print(
-      ggplot(r_source$gcc_data_for_source_plot) +
-        geom_raster(aes(
-          x = lag_i_j, y = lag_i_k, fill = lag_values
-        )) +
-        geom_point(
-          data = filter(
-            r_source$gcc_data_for_source_plot,
-            !is.na(source_nvalues_AC)
-          ),
-          aes(
-            x = lag_i_j,
-            y = lag_i_k,
-            size = source_nvalues_AC,
-            color = source_nvalues_AC
-          ),
-          alpha = 0.2
-        ) +
-        facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral") +
-        scale_color_distiller(palette = "Spectral")
-
-    )
-    print(
-      ggplot(r_source$gcc_data_for_source_plot) +
-        geom_raster(aes(
-          x = lag_i_j, y = lag_i_k, fill = lag_values
-        )) +
-        geom_point(
-          data = filter(
-            r_source$gcc_data_for_source_plot,
-            !is.na(source_nvalues_BC)
-          ),
-          aes(
-            x = lag_i_j,
-            y = lag_i_k,
-            size = source_nvalues_BC,
-            color = source_nvalues_BC
-          ),
-          alpha = 0.2
-        ) +
-        facet_grid(i_k ~ i_j) + scale_fill_distiller(palette = "Spectral") +
-        scale_color_distiller(palette = "Spectral")
-
-    )
-
-  }
 
 
 
@@ -1102,7 +839,7 @@ gphase_filter_peaks_data <- function(gcc,
                                   threshold = min(sort(d$lag_value, decreasing = T)[keep_the_best_n],
                                                   keep_if_z_is_greater_than)
                                   d <-
-                                    d %>% filter(lag_value > threshold)
+                                    d %>% dplyr::filter(lag_value > threshold)
 
                                   return(list(i = i,
                                               j = j,
@@ -1494,30 +1231,30 @@ plot_shared_peaks <- function(gcc,
       freq_filter = freq_filter
     )
   print(
-    ggplot(gcc$shared_peaks_for_plot$d_lines) +
-      geom_path(aes(x_lags_all, y_lags_all), alpha = 0.1) +
-      facet_grid(i_k ~ i_j, scales = "free") + scale_color_distiller(palette = "Spectral") +
-      geom_point(
+    ggplot2::ggplot(gcc$shared_peaks_for_plot$d_lines) +
+      ggplot2::geom_path(ggplot2::aes(x_lags_all, y_lags_all), alpha = 0.1) +
+      ggplot2::facet_grid(i_k ~ i_j, scales = "free") + ggplot2::scale_color_distiller(palette = "Spectral") +
+      ggplot2::geom_point(
         data = gcc$shared_peaks_for_plot$d_shared,
-        aes(x = lag_shared_i_j, y = lag_shared_i_k)
+        ggplot2::aes(x = lag_shared_i_j, y = lag_shared_i_k)
       )
   )
   print(
-    ggplot(gcc$shared_peaks_for_plot$d_lines) +
-      geom_path(aes(x_lags_set, y_lags_set), alpha = 0.1) +
-      facet_grid(i_k ~ i_j, scales = "free") + scale_color_distiller(palette = "Spectral") +
-      geom_point(
+    ggplot2::ggplot(gcc$shared_peaks_for_plot$d_lines) +
+      ggplot2::geom_path(ggplot2::aes(x_lags_set, y_lags_set), alpha = 0.1) +
+      ggplot2::facet_grid(i_k ~ i_j, scales = "free") + ggplot2::scale_color_distiller(palette = "Spectral") +
+      ggplot2::geom_point(
         data = gcc$shared_peaks_for_plot$d_shared,
-        aes(x = lag_shared_i_j, y = lag_shared_i_k)
+        ggplot2::aes(x = lag_shared_i_j, y = lag_shared_i_k)
       )
   )
   print(
-    ggplot(gcc$shared_peaks_for_plot$d_lines) +
-      geom_path(aes(x_lags_shared, y_lags_shared), alpha = 0.1) +
-      facet_grid(i_k ~ i_j, scales = "free") + scale_color_distiller(palette = "Spectral") +
-      geom_point(
+    ggplot2::ggplot(gcc$shared_peaks_for_plot$d_lines) +
+      ggplot2::geom_path(ggplot2::aes(x_lags_shared, y_lags_shared), alpha = 0.1) +
+      ggplot2::facet_grid(i_k ~ i_j, scales = "free") + ggplot2::scale_color_distiller(palette = "Spectral") +
+      ggplot2::geom_point(
         data = gcc$shared_peaks_for_plot$d_shared,
-        aes(x = lag_shared_i_j, y = lag_shared_i_k)
+        ggplot2::aes(x = lag_shared_i_j, y = lag_shared_i_k)
       )
   )
 
