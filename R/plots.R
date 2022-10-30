@@ -910,6 +910,9 @@ obtain_shared_peaks <- function(gcc,
       d = d
     )
   }
+
+
+
   n_receptors = length(gcc$labels)
 
   gcc$shared_peaks =
@@ -928,6 +931,12 @@ obtain_shared_peaks <- function(gcc,
       list(d = data.frame())
     )
 
+  gcc$shared_peaks$d$sum_of_values=gcc$shared_peaks$d%>%select(starts_with("values"))%>%rowSums()
+  gcc$shared_peaks$d$sum_of_log_values=
+    gcc$shared_peaks$d%>%select(starts_with("values"))%>%Reduce(function(x,y) x+log(y),.,init = 0)
+  gcc$shared_peaks$d=arrange(gcc$shared_peaks$d,desc(sum_of_log_values))
+
+
   return (gcc)
 }
 
@@ -938,6 +947,7 @@ shared_peaks_data_for_plot <- function(gcc,
                                        min_freq = NULL,
                                        max_freq = NULL,
                                        lag_window_in_meters,
+                                       show_greatest_n_peaks =10,
                                        keep_if_z_is_greater_than = 5,
                                        keep_the_best_n = 5,
                                        velocity_of_sound = 334,
@@ -957,7 +967,9 @@ shared_peaks_data_for_plot <- function(gcc,
       velocity_of_sound = velocity_of_sound,
       freq_filter = freq_filter
     )
+  peak_threshold=gcc$shared_peaks$d$sum_of_log_values[min(show_greatest_n_peaks,nrow(gcc$shared_peaks$d))]
 
+  shared_peaks=gcc$shared_peaks$d%>%filter(sum_of_log_values>=peak_threshold)
 
   max_lag = gcc$lag_max / gcc$fs[1]
   min_lag = -max_lag
@@ -1060,12 +1072,12 @@ shared_peaks_data_for_plot <- function(gcc,
             lag_value_k = gcc$gcc_peaks_data[[i]][[k - i]]$d$lag_value
             lag_value_jk = gcc$gcc_peaks_data[[j]][[k - j]]$d$lag_value
 
-            lag_shared_i_j = gcc$shared_peaks$d[[paste0("lag_", i, "_", j)]]
-            lag_shared_i_k = gcc$shared_peaks$d[[paste0("lag_", i, "_", k)]]
+            lag_shared_i_j = shared_peaks[[paste0("lag_", i, "_", j)]]
+            lag_shared_i_k = shared_peaks[[paste0("lag_", i, "_", k)]]
 
-            lag_value_shared_i_j = gcc$shared_peaks$d[[paste0("values_", i, "_", j)]]
-            lag_value_shared_i_k = gcc$shared_peaks$d[[paste0("values_", i, "_", k)]]
-            lag_value_shared_j_k = gcc$shared_peaks$d[[paste0("values_", j, "_", k)]]
+            lag_value_shared_i_j = shared_peaks[[paste0("values_", i, "_", j)]]
+            lag_value_shared_i_k = shared_peaks[[paste0("values_", i, "_", k)]]
+            lag_value_shared_j_k = shared_peaks[[paste0("values_", j, "_", k)]]
 
             min_lag_x = min(lag_j)
             max_lag_x = max(lag_j)
@@ -1212,6 +1224,7 @@ plot_shared_peaks <- function(gcc,
                               min_freq = NULL,
                               max_freq = NULL,
                               lag_window_in_meters,
+                              show_greatest_n_peaks =10,
                               keep_if_z_is_greater_than = 5,
                               keep_the_best_n = 5,
                               velocity_of_sound = 334,
@@ -1225,6 +1238,7 @@ plot_shared_peaks <- function(gcc,
       min_freq = min_freq,
       max_freq = max_freq,
       lag_window_in_meters = lag_window_in_meters,
+      show_greatest_n_peaks =show_greatest_n_peaks,
       keep_if_z_is_greater_than = keep_if_z_is_greater_than,
       keep_the_best_n = keep_the_best_n,
       velocity_of_sound = velocity_of_sound,
