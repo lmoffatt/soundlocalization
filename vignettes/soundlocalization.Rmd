@@ -93,7 +93,7 @@ Now, let see a graphical representation of the sound recorded at each
 site.
 
 ```{r}
-sound_plot(signal = rec )
+sound_plot(recordings = rec )
 
 ```
 
@@ -109,7 +109,7 @@ Now, lets analyze the spectral components of the recordings in 10
 seconds frames
 
 ```{r}
-for (i in 1:length(a_recordings$signal))
+for (i in 1:length(a_recordings$framed_raw_signal))
 {
   spectro_plot(recordings = a_recordings,i,start = 118,end=120.8,min_freq = 00,max_freq = 10000,listen = T)
 
@@ -124,7 +124,11 @@ spectro_plot_luc(rec = a_recordings,start = 118,end=120.8,min_freq = 00,max_freq
 Lets see the cross correlation plot
 
 ```{r}
-  gcc_phase_plot(rec = a_recordings,t_start =  118,t_end = 120.8,min_freq = 500,max_freq = 6000,lag_window_in_meters = 20,remove_if_z_is_greater_than=5)
+  gcc_phase_plot(rec = a_recordings,t_start =  118,t_end = 120.8,min_freq = 500,max_freq = 6000,lag_window_in_meters = 30,remove_if_z_is_greater_than=5)
+```
+```{r}
+plot_shared_peaks(gcc =  a_recordings,t_start =  118,t_end = 120.8,min_freq = 500,max_freq =  6000,lag_window_in_meters = 30, show_greatest_n_peaks = 5)
+
 ```
 
 ```{r}
@@ -146,12 +150,16 @@ luciano_frame_sources
 ```
 
 ```{r}
-for (i in 1:length(a_recordings$signal))
+for (i in 1:length(a_recordings$framed_raw_signal))
 {
-  spectro_plot(recordings = a_recordings,i,start = 120.8,end=122,listen=T,min_freq = 00,max_f=500,listen_freq = 1)
+  spectro_plot(recordings = a_recordings,i,start = 120.8,end=122,listen=T,min_freq = 00,max_f=5000,listen_freq = 1)
   
  # listen(recordings = a_recordings,i,start = 120.8,end=125)
 }
+```
+
+
+```{r}
 andrea_voice<-set_source_list(names=c("andrea_voice"),x_pos_min = -2,x_pos_max = 2, y_pos_min = -2,y_pos_max = 2,min_freq =500,max_freq = 3500 )
 joaquin_voice<-set_source_list(names=c("joaquin_voice"),x_pos_min = -2,x_pos_max = 2, y_pos_min = 2.5,y_pos_max = 6.5,min_freq =500,max_freq = 2500 )
 
@@ -169,16 +177,13 @@ andrea_frame_sources<-rbind(andrea_voice,joaquin_voice,andrea_bird#,andrea_stree
 ```
 
 ```{r}
-  spectro_plot(recordings = a_recordings,4,start = 0,end=10,listen=T,min_freq = 2500,max_f=4500,listen_freq = 1)
+  spectro_plot(recordings = a_recordings,4,start = 0,end=10,listen=F,min_freq = 2500,max_f=4500,listen_freq = 1)
 
 ```
 
 ```{r}
-for (i in 1:length(a_recordings$signal))
-{
-  spectro_plot(recordings = a_recordings,i,start = 122,end=127,listen=T, min_freq = 500,max_freq = 4000)
+  spectro_plot_luc(rec =  a_recordings,i,start = 122,end=127, min_freq = 500,max_freq = 4000)
  # listen(recordings = a_recordings,i,start = 120.8,end=125)
-}
 
 candela_voice<-set_source_list(names=c("candela_voice"),x_pos_min = -2,x_pos_max = 2, y_pos_min = 7,y_pos_max = 11,min_freq =500,max_freq = 3000 )
 
@@ -194,7 +199,7 @@ candela_frame_sources<-rbind(candela_voice,candela_bird,candela_street_noise)
 ```
 
 ```{r}
-for (i in 1:length(a_recordings$signal))
+for (i in 1:length(a_recordings$framed_raw_signal))
 {
   spectro_plot(recordings = a_recordings,i,start = 0,end=9,listen=T, min_freq = 2500,max_freq = 4000)
  # listen(recordings = a_recordings,i,start = 120.8,end=125)

@@ -26,6 +26,14 @@ set_source_list <- function(names,
   )
 }
 
+select_receptors <- function(rec, receptorList)
+{
+  d <- lapply(names(rec), function(n)
+    rec[[n]][receptorList])
+  names(d) <- names(rec)
+  return (d)
+}
+
 
 
 set_frame_list <- function(t_start, t_end, sourceList)
@@ -69,15 +77,15 @@ get_receptorList <- function(labels,
 
 frame_to_signal_fft <- function(rec, all_frames)
 {
-  fs = rec$fs[1]
-  all_frames$aligned_signal <-
+  fs = rec$fs
+  all_frames$signal_for_fft <-
 
     lapply(1:length(all_frames$t_start)
            , function (i)
            {
              i_start = all_frames$t_start[i] * fs + 1
              nsamples = min((all_frames$t_end[i] - all_frames$t_start[i]) * fs,
-                            length(rec$signal[[i]]) - i_start + 1)
+                            length(rec$framed_raw_signal[[i]]) - i_start + 1)
              nsamples = 2 * floor(nsamples / 2)
 
              i_end = i_start + nsamples - 1
@@ -88,12 +96,12 @@ frame_to_signal_fft <- function(rec, all_frames)
   {
     i_start = all_frames$t_start[i] * fs + 1
     nsamples = min((all_frames$t_end[i] - all_frames$t_start[i]) * fs,
-                   nrow(rec$signal[[i]]) - i_start + 1)
+                   length(rec$framed_raw_signal[[i]]) - i_start + 1)
     nsamples = 2 * floor(nsamples / 2)
     c(0:(nsamples / 2 - 1), (-nsamples / 2):-1) * fs / nsamples * 2 * pi
   })
   all_frames$fft <- lapply(1:length(all_frames$t_start), function (i)
-       lapply(all_frames$signal[[i]],fft))
+       lapply(all_frames$signal_for_fft[[i]],fft))
   all_frames
 }
 

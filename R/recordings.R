@@ -3,6 +3,17 @@
 
 
 
+#' Title
+#'
+#' @param files a list with the files where the quasi-simultaneous recordings are stored
+#' @param labels labels for the recordings
+#' @param geo_locations location of the recordings
+#' @param time_of_recording time of the recordings
+#'
+#' @return a list object containing the recordings ready for processing
+#' @export
+#'
+#' @examples
 recordings <-
   function(files,
            labels,

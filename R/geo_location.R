@@ -105,6 +105,15 @@ local_to_geo <- function(origin, x_axis, x, y)
 
 
 
+#' Title
+#'
+#' @param lat
+#' @param lon
+#'
+#' @return
+#' @export
+#'
+#' @examples
 geo_coordinates <- function(lat, lon)
 {
   c(lon = lon, lat = lat)

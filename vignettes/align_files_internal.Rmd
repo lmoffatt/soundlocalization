@@ -98,16 +98,17 @@ we see that the output of this function is a list of two integer vectors: i_star
 
 For this purpose we use another helper function
 ```{r}
-apply_frame(recordings,i_same_length)->e_recordings
-str(e_recordings)
+apply_frame(recordings,framed_by = "truncate",i_start = i_same_length$i_start, nsamples = i_same_length$nsamples)->e_recordings
+str(e_recordings[c("raw_interval","raw_nsamples","raw_signal","framed_by","i_start","nsamples","framed_raw_signal","duration","iterval")])
+
 ```
 we see that the output contains the indexes for start and end and a long matrix with the truncated signal 
 
 
-Now, we need to AZapply a hanning window to avoid artifacts from the fft. 
+Now, we need to apply a hanning window to avoid artifacts from the fft. 
 ```{r}
 h_recordings=apply_hanning_window(e_recordings)
-str(h_recordings)
+str(h_recordings[c("filtered_by","signal_for_fft")])
 ```
 
 Lets see the aspect of the truncated recordings
@@ -121,7 +122,7 @@ Now we are ready to calculate the fourier transforms
 
 ```{r}
 f_signal=calculate_ffts(h_recordings)
-str(f_signal)
+str(f_signal[c("fft")])
 ```
 
 
@@ -130,11 +131,11 @@ str(f_signal)
 now we can calculate the crosscorrelations between the recordings, so we can come up close to be able to align them
 ```{r}
 ccf_signal=calculate_list_of_cross_correlations(h_recordings)
-str(ccf_signal)  
+str(ccf_signal[c("ccf")])  
 ```
 ```{r}
-gcc_signal=calculate_list_of_gcc_phase(e_recordings, remove_if_z_is_greater_than = 5)
-str(gcc_signal)  
+gcc_signal=calculate_list_of_gcc_phase(f_signal, remove_if_z_is_greater_than = 5)
+str(gcc_signal[c("gcc_phase","gcc_phase_std")])  
 
 
 ```
@@ -169,51 +170,8 @@ gcc_phase_plot(gcc_data_for_plot)
 
 
 ```{r}
-rrange<-function(v) diff(range(v))
-data_for_plot_gcc_phase(gcc_data,lag_window_in_meters = 100, decimating_operation = "rrange",max_points = 10000)->gcc_data_for_plot_mean
-gcc_phase_plot(gcc_data_for_plot_mean)
+align_recordings(gcc_data, lag_window_in_meters = 8000)->a_rec
+
 
 ```
-
-```{r}
-gcc_phase_data_for_tri_plot(gcc_data,lag_window_in_meters=8000,        max_points=100,keep_the_best_n =200,keep_if_z_is_greater_than = 100)->tri_d100
-```
-
-
-```{r}
-#str(tri_d)
-gcc_phase_tri_plot(tri_d100)
-```
-
-```{r}
-gphase_filter_peaks(gcc = h_recordings,t_start = 0,t_end = 100,lag_window_in_meters = 800,max_points = 100,keep_the_best_n = 100)->peaks
-```
-
-
-```{r}
-gcc_phase_plot(tri_d100,lag_window_in_meters = 800)
-
-```
-
-
-
-now, lets find out the lags
-
-```{r}
-max_ccf=max_lag_ccf(ccf_signal)
-str(max_ccf)
-```
-```{r}
-calc_lag_ccf(max_ccf )->maxs_ccf
-str(maxs_ccf)
-```
-
-
-
-now we can optimize the lags to find the better combination
-```{r}
-optimize_delays_from_ccf(ccf_signal,max_ccf,maxs_ccf)->opt_ccf
-str(opt_ccf)
-```
-
 

@@ -1,0 +1,70 @@
+---
+title: "peak_grouping_using_lasso"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{peak_grouping_using_lasso}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(soundlocalization)
+library(lubridate)
+library(tidyverse)
+```
+
+
+
+The idea is to use group-lasso algorithm to assign common peaks in phase cross-correlations plots.
+The same problem is much more efficiently solved by using full and inner joins, as is explained in other vignette. 
+
+The idea is to gather all the work I did in this project, to understand why performed so badly. 
+
+
+The is to build a linear equation relating the strength of the "true" peaks with their projections for each receptor pair. The problem is that without any model of the origin of the peaks (meaning the position of its source) there is no way to relate the strength of the peaks of each pair of receptors. That is the magnitude of the AB peak, the AC and BC peaks are all independent. 
+That leave us with only one way to relate them: they are all different from zero. This feature can be detected using the group lasso algorithm. 
+
+
+Lets load a set of recordings
+
+```{r}
+
+
+files<-list(
+ system.file("extdata", "Grabacion_2_andrea.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_1_joaco.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_1_cande.wav", package = "soundlocalization"),
+ system.file("extdata", "Grabacion_3_luciano.wav", package = "soundlocalization")
+ )
+labels=c("Andrea","Joaco","Candela","Luciano")
+geo_locations=rbind(geo_coordinates(lat=-34.61410605441556,
+                                lon= -58.38404404725583),
+                geo_coordinates(-34.614103295104634, -58.3839950969408),
+                geo_coordinates(-34.6140999839314, -58.383942123312224),
+                geo_coordinates(-34.61409722462029, -58.38389920796756))
+
+time_of_recording=lubridate::ymd_hm("2022-09-03 10:52",tz="America/Buenos_Aires")
+recordings<-recordings(files = files,
+                       labels = labels,
+                       geo_locations = geo_locations, 
+                       time_of_recording = time_of_recording)
+
+
+```
+
+
+```{r}
+gcc_phase_data_for_lasso_source_reconstruction_plot(recordings,t_start = 0,t_end = NULL,min_freq = 0,max_freq = 10000, lag_window_in_meters = 8000,max_points = 50,keep_if_z_is_greater_than = 4,lambda=0.01,keep_the_best_n = 5, velocity_of_sound = 334, freq_filter = F)->pl
+```
+
+```{r}
+plot_peaks_groups_by_Lasso(pl)
+```
+
