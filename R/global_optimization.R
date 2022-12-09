@@ -286,6 +286,70 @@ recording_to_receptors_frame <- function(rec,
 
 }
 
+recording_to_parameters <- function(rec,
+                                         n_sources = NULL,
+                                         i_offset = 0,
+                                         x_min = NULL,
+                                         x_max = NULL,
+                                         y_min = NULL,
+                                         y_max = NULL,
+                                         freq_limits = rbind(c(0, 500),
+                                                             c(500, 4000),
+                                                             c(4000, 10000)))
+{
+  receptors = recording_to_receptors(rec, i_offset = i_offset)
+
+
+
+  frames = Reduce(function(prev, frame)
+  {
+    sources = recording_to_single_frame_sources(
+      rec,
+      frame,
+      offset = prev$offset,
+      n_sources,
+      x_min,
+      x_max = x_max,
+      y_min ,
+      y_max ,
+      freq_limits
+    )
+    offset = sources$offset
+    return (list(offset = offset, values = c(prev$values, list(sources))))
+  }
+  ,
+  rec$frames,
+  list(offset = receptors$offset, values = list()))
+
+
+}
+
+
+grouped_list_to_beta <- function(parameters)
+{
+  n = parameters$frames$offset
+  out = complex(n)
+  recp = parameters$receptors$values
+  i_recp = parameters$receptors$indexes
+  out[i_recp$i_x] = recp[3:nrow(recp), "x"]
+  out[i_recp$i_y] = recp[2:nrow(recp), "y"]
+  out[i_recp$i_logG] = recp[2:nrow(recp), "logG"]
+  out[i_recp$i_offset] = recp[2:nrow(recp), "offset"]
+
+  for (i in seq_along(parameters$frames$values))
+  {
+    fr = parameters$frames$values[[i]]
+    out[fr$i_logG] <- fr$logG
+    for (j in seq_along(fr$sources))
+    {
+      so = fr$sources[[j]]
+      out[so$i_pos] = so$pos
+      out[so$i_X] = so$X
+    }
+  }
+
+  return(out)
+}
 
 
 list_to_beta <- function(parameters)
@@ -374,7 +438,7 @@ get_sources_pos <- function(beta, parameters)
 
 global_optimization <- function(f_rec)
 {
-  get_source_Amplitude <- function(beta, xdata)
+  get_source_Amplitude <- function(parameters,xdata)
   {
     i_rec = xdata$i_rec
 
@@ -392,7 +456,7 @@ global_optimization <- function(f_rec)
 
     fG = get_frame_Gain(beta)
 
-    distances = get_source_receptor_distance(sources, receptors)
+    distances = get_receptor_source_distance(receptors, sources)
 
     dist_recip = 1 / distances
 
@@ -405,7 +469,7 @@ global_optimization <- function(f_rec)
 
   predict_single_fft <- function(beta, xdata)
   {
-    A = get_source_Amplitude(beta, xdata)
+    A = get_source_Amplitude(beta, parameters,xdata)
     X = get_source_fft(beta, xdata)
     return(A %*% X)
 
