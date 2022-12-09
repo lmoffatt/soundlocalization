@@ -1,0 +1,19 @@
+---
+title: "iso_lag_plot"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{iso_lag_plot}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(soundlocalization)
+```

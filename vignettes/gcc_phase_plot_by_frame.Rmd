@@ -1,0 +1,312 @@
+---
+title: "gcc_phase_plot_by_frame"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{gcc_phase_plot_by_frame}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(soundlocalization)
+library(lubridate)
+library(tidyverse)
+```
+
+
+
+```{r setup}
+library(soundlocalization)
+library(lubridate)
+```
+
+
+
+Lets explore how to chop the recordings into a series of frames where the gcc-phase analysis is done separately. 
+
+So, all the different algorithms (fft, gcc-phase. gcc-phase-common-peaks) are applied to each frame. 
+
+First, we load a set of concurrent recordings
+
+```{r}
+
+
+
+files <- list(
+  system.file("extdata", "Grabacion_2_andrea.wav", package = "soundlocalization"),
+  system.file("extdata", "Grabacion_1_joaco.wav", package = "soundlocalization"),
+  system.file("extdata", "Grabacion_1_cande.wav", package = "soundlocalization"),
+  system.file("extdata", "Grabacion_3_luciano.wav", package = "soundlocalization")
+)
+labels = c("Andrea", "Joaco", "Candela", "Luciano")
+geo_locations = rbind(
+  geo_coordinates(
+    lat = -34.61410605441556,
+    lon = -58.38404404725583
+  ),
+  geo_coordinates(
+    lat = -34.614103295104634,
+    lon = -58.3839950969408
+  ),
+  geo_coordinates(
+    lat = -34.6140999839314,
+    lon = -58.383942123312224
+  ),
+  
+  geo_coordinates(
+    lat = -34.61409722462029,
+    lon = -58.38389920796756
+  )
+)
+time_of_recording = ymd_hm("2022-09-03 10:52", tz = "America/Buenos_Aires")
+
+rec<-recordings(files = files,
+                       labels = labels,
+                       geo_locations = geo_locations, 
+                       time_of_recording = time_of_recording)
+
+```
+
+
+then we need to align the recordings
+
+```{r}
+s_rec<-obtain_shared_peaks(rec)
+str(s_rec$shared_peaks)
+```
+
+
+
+```{r}
+a_rec<-align_recordings(s_rec)
+```
+
+
+```{r}
+str(a_rec)
+
+```
+
+Now we can set the frames
+
+```{r}
+a2_rec<-align_recordings(a_rec)
+
+```
+```{r}
+f_rec<-frame_recordings(a2_rec)
+
+```
+
+
+```{r}
+str(f_rec$frames[[1]])
+```
+
+```{r}
+```
+
+
+```{r}
+g_rec<-gcc_phase_data(f_rec)
+```
+
+
+```{r}
+str(g_rec$frames[[1]])
+```
+
+```{r}
+sp_rec<-obtain_shared_peaks(g_rec,keep_if_z_is_greater_than = 5,                          keep_the_best_n = 200)
+str(sp_rec$frames[[1]]$shared_peaks)
+```
+
+
+```{r}
+Reduce(function(p,i) {
+  d=sp_rec$frames[[i]]$shared_peaks$delays
+  if (nrow(d)==0)
+    return (p)
+  else
+  {
+    d$t_start_1=sp_rec$frames[[i]]$i_start[1]/sp_rec$fs[1]
+    d$t_start_2=sp_rec$frames[[i]]$i_start[2]/sp_rec$fs[1]
+    d$t_start_3=sp_rec$frames[[i]]$i_start[3]/sp_rec$fs[1]
+    d$t_start_4=sp_rec$frames[[i]]$i_start[4]/sp_rec$fs[1]
+    d$i=i
+    d$sum_of_values=sp_rec$frames[[i]]$shared_peaks$d$sum_of_values
+     return(rbind(p,d))
+  }},1:length(sp_rec$frames),data.frame()
+  )->sp_d
+
+```
+```{r}
+f_rec_1<-frame_recordings(a2_rec,window_size_in_seconds = 1)
+sp_rec_1<-obtain_shared_peaks(f_rec_1,keep_if_z_is_greater_than = 5,                          keep_the_best_n = 200)
+```
+
+```{r}
+sources = set_sources(
+  label = c(
+    'Andrea_voice',
+    'Joaquin_voice',
+    'Candela_voice',
+    'Luciano_voice'
+  ),
+  x_pos = c(0, 4.5, 9.3, 13.3),
+  y_pos = c(0.1, 0.1, 0.1, 0.1),
+  error = 2,
+  t_recordings = c('Andrea',
+                   'Joaquin',
+                   'Candela',
+                   'Luciano'),
+  t_starts = c(123.221, 121.876, 122.556,120.460),
+  t_ends = c(124.109, 122.433,123.249,122.969),
+  min_freq = 500,
+  max_freq = 6000)
+sources
+
+
+```
+
+
+```{r}
+Reduce(function(p,i) {
+  d=sp_rec_1$frames[[i]]$shared_peaks$delays
+  if (nrow(d)==0)
+    return (p)
+  else
+  {
+    d$t_start_1=sp_rec_1$frames[[i]]$i_start[1]/sp_rec_1$fs[1]
+    d$t_start_2=sp_rec_1$frames[[i]]$i_start[2]/sp_rec_1$fs[1]
+    d$t_start_3=sp_rec_1$frames[[i]]$i_start[3]/sp_rec_1$fs[1]
+    
+    d$t_start_4=sp_rec_1$frames[[i]]$i_start[4]/sp_rec_1$fs[1]
+    d$i=i
+    d$sum_of_values=sp_rec_1$frames[[i]]$shared_peaks$d$sum_of_values
+     return(rbind(p,d))
+  }},1:length(sp_rec_1$frames),data.frame()
+  )->sp_d_1
+
+
+```
+
+
+```{r}
+Reduce(function(p, i) {
+  n_receptors = length(sp_rec$labels)
+  gcc_s = sp_rec$frames[[i]]$gcc_phase_std
+  
+ return( Reduce(function(pi, ii)
+    Reduce(function (pij, ij)
+    {
+      rbind(
+        pij, 
+        data.frame(
+          t_start_1=sp_rec$frames[[i]]$i_start[1]/sp_rec$fs[1],
+          i=i,´
+          from = ii,
+          to = ij,
+          value = gcc_s[[ii]][[ij - ii]]$sd
+        )
+      )
+      }
+      , (ii+1):n_receptors, pi)
+    ,
+    1:(n_receptors - 1),    p)
+    )
+}
+,  1:length(sp_rec$frames),
+data.frame()) -> sp_std
+
+
+```
+
+
+
+```{r}
+Reduce(function(p, i) {
+  n_receptors = length(sp_rec$labels)
+  gcc_s = sp_rec_1$frames[[i]]$gcc_phase_std
+  
+ return( Reduce(function(pi, ii)
+    Reduce(function (pij, ij)
+    {
+      rbind(
+        pij, 
+        data.frame(
+          t_start_1=sp_rec_1$frames[[i]]$i_start[1]/sp_rec$fs[1],
+          i=i,
+          from = ii,
+          to = ij,
+          value = gcc_s[[ii]][[ij - ii]]$sd,
+          mean= mean(gcc_s[[ii]][[ij - ii]]$z),
+          max= max(gcc_s[[ii]][[ij - ii]]$z),
+          std = sd (gcc_s[[ii]][[ij - ii]]$z), 
+          vol_dif= sd (sp_rec_1$frames[[i]]$signal_for_fft[[ii]])- sd (sp_rec_1$frames[[i]]$signal_for_fft[[ij]]), 
+          vol_sum= sd (sp_rec_1$frames[[i]]$signal_for_fft[[ii]])+ sd (sp_rec_1$frames[[i]]$signal_for_fft[[ij]])
+          
+          
+        )
+      )
+      }
+      , (ii+1):n_receptors, pi)
+    ,
+    1:(n_receptors - 1),    p)
+    )
+}
+,  1:length(sp_rec_1$frames),
+data.frame()) -> sp_std_1
+
+
+```
+
+
+
+```{r}
+Reduce(function(p, i) {
+  n_receptors = length(sp_rec$labels)
+  gcc_s = sp_rec$frames[[i]]$gcc_phase_std
+  
+ return( Reduce(function(pi, ii)
+    Reduce(function (pij, ij)
+    {
+      rbind(
+        pij, 
+        data.frame(
+          t_start_1=sp_rec$frames[[i]]$i_start[1]/sp_rec$fs[1],
+          i=i,
+          from = ii,
+          to = ij,
+          value = gcc_s[[ii]][[ij - ii]]$sd,
+          mean= mean(gcc_s[[ii]][[ij - ii]]$z),
+          max= max(gcc_s[[ii]][[ij - ii]]$z),
+          std = sd (gcc_s[[ii]][[ij - ii]]$z), 
+          vol_i= sd (sp_rec$frames[[i]]$signal_for_fft[[ii]]), 
+          vol_j= sd (sp_rec$frames[[i]]$signal_for_fft[[ij]])
+          
+          
+        )
+      )
+      }
+      , (ii+1):n_receptors, pi)
+    ,
+    1:(n_receptors - 1),    p)
+    )
+}
+,  1:length(sp_rec$frames),
+data.frame()) -> sp_std
+
+
+```
+
+
+
+
