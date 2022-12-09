@@ -4,7 +4,7 @@
 \alias{calculate_ffts}
 \title{Title obtains the fourier transform of all the signals at once}
 \usage{
-calculate_ffts(windowed_signal)
+calculate_ffts(rec)
 }
 \arguments{
 \item{windowed_signal}{the hanning window should be already applied}

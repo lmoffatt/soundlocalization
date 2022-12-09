@@ -56,24 +56,38 @@ build_ABCij_to_ABi_transform_matrix<-function(nlags)
 
 
 
-locatiogram <- function(single_frames,
+locatiogram <- function(rec,
+                        frames,
                         receptors,
                         axis_length = 13,
                         n_points = 100,
-                        fs = 44100,
                         sound_velocity = 343)
 {
-  source_position_to_ccf_sum <-
-    function(source,
-             receptors,
-             frame,
-             fs,
-             sound_velocity)
+  delay_source_receptor<-function(single_source,all_receptors)
+  {
+    n_receptors = length(all_receptors)
+    delays <-
+      vapply(1:n_receptors, function(i)
+        distance(source, all_receptors[[i]]),
+        numeric(1)) / sound_velocity
+    return (delays)
+
+  }
+
+  gcc_amplitude_source_receptor_pairs<-function(single_source, all_receptors)
+  {
+    delays=delay_source_receptor(single_source, all_receptors)
+  }
+
+  source_position_to_gcc_pairs <-
+    function(single_source,
+             all_receptors,
+             single_frame)
     {
       n_receptors = nrow(receptors)
       t_dist <-
         vapply(1:n_receptors, function(i)
-          distance(source, receptors[i,]),
+          distance(source, all_receptors[[i]]),
           numeric(1)) / sound_velocity
       Reduce(function(s, i)
         s + Reduce(function(s, j)

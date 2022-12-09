@@ -37,8 +37,15 @@ geo_to_local2 <- function(origin, x_axis, points)
        y = dp %*% dy)
 
 }
-geo_to_local <- function(origin, x_axis, points)
+geo_to_local <- function(points,origin=NULL, x_axis=NULL)
 {
+  if (is.null(origin))
+    origin=points[1,]
+  if (is.null(x_axis))
+    x_axis=points[2,]
+
+
+
   dy = c(geosphere::distGeo(c(origin["lon"], origin["lat"]),
                             c(origin["lon"], x_axis["lat"])),
          geosphere::distGeo(c(origin["lon"], origin["lat"]),
@@ -114,7 +121,7 @@ local_to_geo <- function(origin, x_axis, x, y)
 #' @export
 #'
 #' @examples
-geo_coordinates <- function(lat, lon)
+geo_coordinates <- function(lat, lon,error=4)
 {
-  c(lon = lon, lat = lat)
+  c(lon = lon, lat = lat, error=error)
 }

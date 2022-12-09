@@ -1,5 +1,45 @@
 
 
+set_receptor <- function (label,
+                          file,
+                          geo_location,
+                          time_of_recording)
+{
+  return(
+    list(
+      label = label,
+      file = file,
+      geo_location = geo_location,
+      time_of_recording = time_of_recording
+    )
+  )
+}
+
+set_sources <- function(label,
+                        x_pos,
+                        y_pos,
+                        error,
+                        t_recordings,
+                        t_starts,
+                        t_ends,
+                        min_freq,
+                        max_freq)
+{
+  return (
+    list(
+      label = label,
+      x = x_pos,
+      y = y_pos,
+      error = error,
+      t_starts = t_starts,
+      t_ends = t_ends,
+      min_freq = min_freq,
+      max_freq = max_freq
+    )
+  )
+}
+
+
 
 
 
@@ -18,7 +58,9 @@ recordings <-
   function(files,
            labels,
            geo_locations,
-           time_of_recording)
+           time_of_recording,
+           origin = NULL,
+           x_axis = NULL)
   {
     # lets check that we have the geo_location for each receptor
     stopifnot(
@@ -26,9 +68,6 @@ recordings <-
         length(files) == nrow(geo_locations) &
         length(files) == length(labels)
     )
-
-
-
     if (length(time_of_recording) == 1)
       time_of_recording = rep(time_of_recording, length(files))
 
@@ -42,6 +81,12 @@ recordings <-
     stopifnot("recordings differ in their sampling rate" = length(unique(fs)) ==
                 1)
 
+
+  p = geo_to_local(points = geo_locations,
+                   origin = origin,
+                     x_axis = x_axis)
+
+
     d = list(
       labels = labels,
       lat = vapply(1:nrow(geo_locations),
@@ -50,6 +95,13 @@ recordings <-
       lon = vapply(1:nrow(geo_locations),
                    function(i)
                      geo_locations[i, "lon"], 1),
+      x= p[,1],
+      y= p[,2],
+      pos_err = vapply(1:nrow(geo_locations),
+                       function(i)
+                         geo_locations[i, "error"], 1),
+      origin = origin,
+      x_axis = x_axis,
       time = time_of_recording,
       dirname = vapply(files, function(x)
         dirname(x), 'c'),
@@ -81,6 +133,11 @@ extract_raw_recording <- function(somewhat_processed_recording)
     "labels",
     "lat",
     "lon",
+    "x",
+    "y",
+    "pos_err",
+    "origin",
+    "x_axis",
     "time",
     "dirname",
     "filename",

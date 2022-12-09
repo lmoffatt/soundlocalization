@@ -1,18 +1,146 @@
-obtain_shared_peaks <- function(gcc,
-                                t_start = NULL,
-                                t_end = NULL,
-                                min_freq = NULL,
-                                max_freq = NULL,
-                                lag_window_in_meters,
-                                keep_if_z_is_greater_than = 5,
-                                keep_the_best_n = 5,
-                                velocity_of_sound = 334,
-                                freq_filter = F)
 
+
+obtain_lag_max <-
+  function(rec,
+           frame,
+           lag_window_in_meters,
+           velocity_of_sound=334)
+  {
+    lag_max = floor(frame$nsamples[1] / 4) * 2
+    if (is.null(lag_max) || length(lag_max) == 0)
+      lag_max = floor(min(rec$raw_nsamples) / 5) * 2
+
+    if (!is.null(lag_window_in_meters))
+      lag_max = ceiling(lag_window_in_meters / velocity_of_sound * rec$fs[1])
+
+    return(lag_max)
+
+  }
+
+
+
+
+
+
+group_peaks_by_common_lag <- function(shared_peaks)
 {
-  if (!"gcc_peaks_data" %in% names(gcc))
-    gcc <- gphase_filter_peaks_data(
-      gcc,
+  find_duplicates_per_column <- function(lag_values)
+  {
+    d = data.frame(index = seq_along(lag_values), values = lag_values)
+    d = dplyr::arrange(d, values)
+    d$next_index = lag_values
+    if (length(lag_values) > 1)
+      d$next_index = dplyr::if_else(d$values == c(d$values[2:nrow(d)], d$values[1]),
+                                    c(d$index[2:nrow(d)], d$index[1]),
+                                    d$index)
+    d = dplyr::arrange(d, index)
+    return (d$next_index)
+  }[]
+
+  find_duplicates_indexes <- function(shared_peaks)
+  {
+    Reduce(
+      f = function(d, n) {
+        ni = paste0('next_index_', shared_peaks$i[n], '_', shared_peaks$j[n])
+
+        vi = paste0('values_', shared_peaks$i[n], '_', shared_peaks$j[n])
+        d[ni] = find_duplicates_per_column(shared_peaks$d[[vi]])
+        return (d)
+      },
+      x = 1:length(shared_peaks$i),
+      data.frame(index = 1:nrow(shared_peaks$d))
+    )
+  }
+
+  du = find_duplicates_indexes(shared_peaks)
+  ci = lapply(1:nrow(du), function(i)
+    unique(as.numeric(du[i,])))
+  du$connected_indexes = ci
+
+  get_all_duplicated_indexes <-
+    function(other_set, current_set, new_set)
+    {
+      Reduce(
+        f = function(p, i) {
+          new_indexes = setdiff(ci[[i]], c(other_set, p))
+          if (!length(new_indexes) == 0)
+            return (get_all_duplicated_indexes(other_set, c(p, new_indexes), new_indexes))
+          else
+            return (p)
+        },
+        new_set,
+        current_set
+      )
+    }
+
+
+  groups = Reduce(
+    f = function(p, i) {
+      if (!i %in% p$all)
+      {
+        new_group = get_all_duplicated_indexes(p$all, c(), ci[[i]])
+        p$groups = c(p$groups, list(new_group))
+        p$all = c(p$all, new_group)
+      }
+      return (p)
+    },
+    1:nrow(du),
+    list(all = c(), groups = list())
+  )
+  stopifnot('somehow the grouping failed' = all(sort(groups$all) == 1:nrow(du)))
+
+  return (groups$groups)
+
+}
+
+
+
+
+
+
+
+
+
+
+obtain_shared_peaks_per_frame <-
+
+  function(rec,
+           frame,
+           t_start = NULL,
+           t_end = NULL,
+           min_freq = NULL,
+           max_freq = NULL,
+           lag_window_in_meters = NULL,
+           keep_if_z_is_greater_than = 5,
+           keep_the_best_n = 50,
+           velocity_of_sound = 334,
+           signal_filter = F,
+           freq_filter = F)
+
+  {
+    lag_max = obtain_lag_max(rec,frame,lag_window_in_meters = lag_window_in_meters,
+                             velocity_of_sound = velocity_of_sound)
+
+    if (has_element_and_matches_this(
+      frame,
+      "shared_peaks",
+      list_to_match = list(
+        min_freq = min_freq,
+        max_freq = max_freq,
+        signal_filter = signal_filter,
+        freq_filter = freq_filter,
+        keep_if_z_is_greater_than = keep_if_z_is_greater_than,
+        keep_the_best_n = keep_the_best_n,
+        lag_max = lag_max
+      )
+    ))
+    return(frame)
+
+
+
+    frame <- gphase_filter_peaks_data_per_frame(
+      rec,
+      frame,
       t_start = t_start,
       t_end = t_end,
       min_freq = min_freq,
@@ -21,73 +149,159 @@ obtain_shared_peaks <- function(gcc,
       keep_if_z_is_greater_than = keep_if_z_is_greater_than,
       keep_the_best_n = keep_the_best_n,
       velocity_of_sound = velocity_of_sound,
+      signal_filter = signal_filter,
       freq_filter = freq_filter
     )
 
-  expand <- function(d_matrix, d_vector)
-  {
-    d = data.frame(lags = d_vector$d$lags, values = d_vector$d$lag_value)
-    colnames(d) <-
-      c(
+    expand <- function(d_matrix, d_vector)
+    {
+      d = data.frame(lags = d_vector$d$lags, values = d_vector$d$lag_value)
+      colnames(d) <-
+        c(
+          paste0("lag_", d_vector$i, "_", d_vector$j),
+          paste0("values_", d_vector$i, "_", d_vector$j)
+        )
+      d <- dplyr::full_join(d_matrix$d, d, by = character())
+      list(
+        i = c(d_matrix$i, d_vector$i),
+        j = c(d_matrix$j, d_vector$j),
+        d = d
+      )
+    }
+
+    contract <- function(d_matrix, d_vector)
+    {
+      d = data.frame(lags = d_vector$d$lags, values = d_vector$d$lag_value)
+      colnames(d) <- c(
         paste0("lag_", d_vector$i, "_", d_vector$j),
         paste0("values_", d_vector$i, "_", d_vector$j)
       )
-    d <- dplyr::full_join(d_matrix$d, d, by = character())
-    list(
-      i = c(d_matrix$i, d_vector$i),
-      j = c(d_matrix$j, d_vector$j),
-      d = d
-    )
+
+      dd = d_matrix$d
+      lagij = paste0("lag_", d_vector$i, "_", d_vector$j)
+      dd[[lagij]] =
+        dd[[paste0("lag_", 1, "_", d_vector$j)]] - dd[[paste0("lag_", 1, "_", d_vector$i)]]
+      d <- dplyr::inner_join(dd, d, by = lagij)
+      list(
+        i = c(d_matrix$i, d_vector$i),
+        j = c(d_matrix$j, d_vector$j),
+        d = d
+      )
+    }
+
+
+
+    n_receptors = length(rec$labels)
+
+    frame$shared_peaks =
+      Reduce (
+        function (d_matrix, j)
+          Reduce(
+            function (d_matrixi, i)
+              if (frame$gcc_peaks_data[[i]][[j - i]]$j %in% d_matrixi$j)
+                contract(d_matrixi, frame$gcc_peaks_data[[i]][[j - i]])
+            else
+              expand(d_matrixi, frame$gcc_peaks_data[[i]][[j - i]]),
+            1:(j - 1),
+            d_matrix
+          ),
+        2:n_receptors,
+        list(d = data.frame())
+      )
+
+    frame$shared_peaks$d$sum_of_values = frame$shared_peaks$d %>%
+      dplyr::select(starts_with("values")) %>% rowSums()
+    frame$shared_peaks$d$sum_of_log_values =
+      frame$shared_peaks$d %>% dplyr::select(starts_with("values")) %>% Reduce(function(x, y)
+        x + log(y), ., init = 0)
+    frame$shared_peaks$d = dplyr::arrange(frame$shared_peaks$d, desc(sum_of_log_values))
+
+
+    n_receptors = length(rec$labels)
+
+
+    d = frame$shared_peaks$d
+    frame$shared_peaks$delays = d[paste0("lag_1_", 2:n_receptors)]
+    logv = d %>% dplyr::select(!dplyr::contains("sum") &
+                                 dplyr::contains("values")) %>% log()
+
+    logR = vapply(1:n_receptors,
+                  function(i) {
+                    (rowSums(dplyr::select(logv, dplyr::contains(paste0(
+                      i
+                    )))) -
+                      rowSums(dplyr::select(logv, !dplyr::contains(paste0(
+                        i
+                      )))) / (n_receptors - 2)) / (n_receptors - 1)
+                  }, numeric(length = nrow(d)))
+
+    frame = Reduce(function (fr, i)
+    {
+      if (nrow(d) > 0)
+        fr$shared_peaks$delays[[paste0('logR_', i)]] = logR[((i - 1) * nrow(d)) +
+                                                              (1:nrow(d))]
+      return(fr)
+    }, seq_len(n_receptors), frame)
+    #  frame$shared_peaks$groups = numeric(0)
+    #  if (nrow(frame$shared_peaks$d) > 0)
+    #    frame$shared_peaks$groups = group_peaks_by_common_lag(frame$shared_peaks)
+    return (frame)
   }
 
-  contract <- function(d_matrix, d_vector)
+
+obtain_shared_peaks <- function(rec,
+                                t_start = NULL,
+                                t_end = NULL,
+                                min_freq = NULL,
+                                max_freq = NULL,
+                                lag_window_in_meters = NULL,
+                                keep_if_z_is_greater_than = 5,
+                                keep_the_best_n = 50,
+                                velocity_of_sound = 334,
+                                signal_filter = F,
+                                freq_filter = F)
+{
+  if ("frames" %in% names(rec))
   {
-    d = data.frame(lags = d_vector$d$lags, values = d_vector$d$lag_value)
-    colnames(d) <- c(
-      paste0("lag_", d_vector$i, "_", d_vector$j),
-      paste0("values_", d_vector$i, "_", d_vector$j)
-    )
-
-    dd = d_matrix$d
-    dd[[paste0("lag_", d_vector$i, "_", d_vector$j)]] =
-      dd[[paste0("lag_", 1, "_", d_vector$j)]] - dd[[paste0("lag_", 1, "_", d_vector$i)]]
-    d <- dplyr::inner_join(dd, d)
-    list(
-      i = c(d_matrix$i, d_vector$i),
-      j = c(d_matrix$j, d_vector$j),
-      d = d
-    )
+    rec$frames = lapply(rec$frames,
+                        function(frame)
+                          return(
+                            obtain_shared_peaks_per_frame(
+                              rec = rec,
+                              frame = frame,
+                              t_start = t_start,
+                              t_end = t_end ,
+                              min_freq = min_freq,
+                              max_freq = max_freq,
+                              lag_window_in_meters = lag_window_in_meters,
+                              keep_if_z_is_greater_than = keep_if_z_is_greater_than,
+                              keep_the_best_n = keep_the_best_n,
+                              velocity_of_sound = velocity_of_sound,
+                              signal_filter = signal_filter ,
+                              freq_filter = freq_filter
+                            )
+                          ))
+    return(rec)
   }
-
-
-
-  n_receptors = length(gcc$labels)
-
-  gcc$shared_peaks =
-    Reduce (
-      function (d_matrix, j)
-        Reduce(
-          function (d_matrixi, i)
-            if (gcc$gcc_peaks_data[[i]][[j - i]]$j %in% d_matrixi$j)
-              contract(d_matrixi, gcc$gcc_peaks_data[[i]][[j - i]])
-          else
-            expand(d_matrixi, gcc$gcc_peaks_data[[i]][[j - i]]),
-          1:(j - 1),
-          d_matrix
-        ),
-      2:n_receptors,
-      list(d = data.frame())
+  else
+    return(
+      obtain_shared_peaks_per_frame(
+        rec = rec,
+        frame = rec,
+        t_start = t_start,
+        t_end = t_end ,
+        min_freq = min_freq,
+        max_freq = max_freq,
+        lag_window_in_meters = lag_window_in_meters,
+        keep_if_z_is_greater_than = keep_if_z_is_greater_than,
+        keep_the_best_n = keep_the_best_n,
+        velocity_of_sound = velocity_of_sound,
+        signal_filter = signal_filter ,
+        freq_filter = freq_filter
+      )
     )
-
-  gcc$shared_peaks$d$sum_of_values=gcc$shared_peaks$d%>%
-    dplyr::select(starts_with("values"))%>%rowSums()
-  gcc$shared_peaks$d$sum_of_log_values=
-    gcc$shared_peaks$d%>%dplyr::select(starts_with("values"))%>%Reduce(function(x,y) x+log(y),.,init = 0)
-  gcc$shared_peaks$d=dplyr::arrange(gcc$shared_peaks$d,desc(sum_of_log_values))
-
-
-  return (gcc)
 }
+
 
 
 shared_peaks_data_for_plot <- function(gcc,
@@ -96,29 +310,31 @@ shared_peaks_data_for_plot <- function(gcc,
                                        min_freq = NULL,
                                        max_freq = NULL,
                                        lag_window_in_meters,
-                                       show_greatest_n_peaks =10,
+                                       show_greatest_n_peaks = 10,
                                        keep_if_z_is_greater_than = 5,
                                        keep_the_best_n = 5,
                                        velocity_of_sound = 334,
+                                       signal_filter = T,
                                        freq_filter = F)
 
 {
-  if (!"shared_peaks" %in% names(gcc))
-    gcc <- obtain_shared_peaks(
-      gcc,
-      t_start = t_start,
-      t_end = t_end,
-      min_freq = min_freq,
-      max_freq = max_freq,
-      lag_window_in_meters = lag_window_in_meters,
-      keep_if_z_is_greater_than = keep_if_z_is_greater_than,
-      keep_the_best_n = keep_the_best_n,
-      velocity_of_sound = velocity_of_sound,
-      freq_filter = freq_filter
-    )
-  peak_threshold=gcc$shared_peaks$d$sum_of_log_values[min(show_greatest_n_peaks,nrow(gcc$shared_peaks$d))]
+  gcc <- obtain_shared_peaks(
+    rec = gcc,
+    t_start = t_start,
+    t_end = t_end,
+    min_freq = min_freq,
+    max_freq = max_freq,
+    lag_window_in_meters = lag_window_in_meters,
+    keep_if_z_is_greater_than = keep_if_z_is_greater_than,
+    keep_the_best_n = keep_the_best_n,
+    velocity_of_sound = velocity_of_sound,
+    signal_filter = signal_filter,
+    freq_filter = freq_filter
+  )
+  peak_threshold = gcc$shared_peaks$d$sum_of_log_values[min(show_greatest_n_peaks, nrow(gcc$shared_peaks$d))]
 
-  shared_peaks=gcc$shared_peaks$d%>%dplyr::filter(sum_of_log_values>=peak_threshold)
+  shared_peaks = gcc$shared_peaks$d %>%
+    dplyr::filter(sum_of_log_values >= peak_threshold)
 
   max_lag = gcc$lag_max / gcc$fs[1]
   min_lag = -max_lag
@@ -188,7 +404,7 @@ shared_peaks_data_for_plot <- function(gcc,
              lag_jk)
     {
       diagxy = diag_lag(min_lag_x, max_lag_x, min_lag_y, max_lag_y,  lag_jk)
-      return (list(
+      return(list(
         x = c(rep(
           only_in_range(min_lag_x, max_lag_x, lag_j), each = 3
         ),
@@ -373,7 +589,7 @@ plot_shared_peaks <- function(gcc,
                               min_freq = NULL,
                               max_freq = NULL,
                               lag_window_in_meters,
-                              show_greatest_n_peaks =10,
+                              show_greatest_n_peaks = 10,
                               keep_if_z_is_greater_than = 5,
                               keep_the_best_n = 200,
                               velocity_of_sound = 334,
@@ -387,7 +603,7 @@ plot_shared_peaks <- function(gcc,
       min_freq = min_freq,
       max_freq = max_freq,
       lag_window_in_meters = lag_window_in_meters,
-      show_greatest_n_peaks =show_greatest_n_peaks,
+      show_greatest_n_peaks = show_greatest_n_peaks,
       keep_if_z_is_greater_than = keep_if_z_is_greater_than,
       keep_the_best_n = keep_the_best_n,
       velocity_of_sound = velocity_of_sound,

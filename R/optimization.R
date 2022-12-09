@@ -1,153 +1,567 @@
-distance <- function(x, y)
-{
-  return ((y$x - x$x) ^ 2 + (y$y - x$y) ^ 2) ^ 0.5
-}
 
 
-set_source_list <- function(names,
-                            x_pos_min,
-                            x_pos_max,
-                            y_pos_min,
-                            y_pos_max,
-                            min_freq,
-                            max_freq)
-{
-  return (
-    data.frame(
-      names = names,
-      x_min = x_pos_min,
-      x_max = x_pos_max,
 
-      y_min = y_pos_min,
-      y_max = y_pos_max,
-      min_freq = min_freq,
-      max_freq = max_freq
+
+
+
+optimize_time_lags_to_single_source_position <-
+  function(lags,
+           receptors,
+           sound_velocity)
+  {
+    n_receptors = ncol(receptors)
+
+
+    mrec = rowMeans(receptors)
+
+    expected_lags <- function(beta) {
+      delays = colSums((beta - receptors) ^ 2) ^ 0.5 / sound_velocity
+
+
+      return((delays[2:n_receptors] - delays[1] - lags) * 1000)
+    }
+
+    localization_sqr_sum <- function(beta)
+    {
+      sum(expected_lags(beta) ^ 2)
+    }
+
+    beta_initial = mrec
+    beta_min = c(-10000, 0)
+    beta_max = c(10000, 10000)
+    maxeval = 1000
+
+    localization_sqr_sum(beta_initial)
+
+    # opd = nloptr::direct(
+    #   localization_sqr_sum,
+    #   lower = beta_min,
+    #   upper = beta_max,
+    #   nl.info = T,
+    #   control = list(maxeval = maxeval)
+    # )
+    #
+    # beta_opt2 = pracma::fminsearch(localization_sqr_sum, opd$par,maxiter = 10)
+    beta_opt3 = pracma::lsqnonlin(fun = expected_lags, x0 = c(10, 10))
+    return (list(
+      x = beta_opt3$x[1],
+      y = beta_opt3$x[2],
+      ss = beta_opt3$ssq
+    ))
+
+  }
+
+
+optimize_all_time_lags_to_their_source_positions <-
+  function(lags,
+           receptors,
+           sound_velocity)
+
+  {
+    opt_lags = vapply(
+      X = seq_len(nrow(lags)),
+      FUN = function(i) {
+        op = optimize_time_lags_to_single_source_position(
+          lags = as.numeric(lags[i,]),
+          receptors = receptors,
+          sound_velocity = sound_velocity
+        )
+        return (c(op$x, op$y, op$ss))
+      },
+      numeric(3)
     )
+    d = data.frame(t(opt_lags))
+    colnames(d) <- c("x", "y", "ss")
+    d = dplyr::arrange(d, ss)
+    return (d)
+
+  }
+
+get_receptors <- function(rec)
+{
+  receptors = vapply(
+    1:length(rec$labels),
+    FUN = function(i)
+      c(rec$x[i], rec$y[i]),
+    numeric(2)
   )
 }
 
-select_receptors <- function(rec, receptorList)
+get_receptors_max <- function(rec)
 {
-  d <- lapply(names(rec), function(n)
-    rec[[n]][receptorList])
-  names(d) <- names(rec)
-  return (d)
+  receptors = vapply(
+    1:length(rec$labels),
+    FUN = function(i)
+      c(rec$x[i] + rec$pos_err[i], rec$y[i] + rec$pos_err[i]),
+    numeric(2)
+  )
+}
+
+get_receptors_min <- function(rec)
+{
+  receptors = vapply(
+    1:length(rec$labels),
+    FUN = function(i)
+      c(rec$x[i] - rec$pos_err[i], rec$y[i] - rec$pos_err[i]),
+    numeric(2)
+  )
 }
 
 
-
-set_frame_list <- function(t_start, t_end, sourceList)
+get_offset_max <- function(rec, velocity_of_sound = 334)
 {
-  d <- data.frame(t_start = t_start, t_end = t_end)
-  d$sources <- list(sourceList)
-  d
-
-}
-
-get_receptorList <- function(labels,
-                             geo_locations,
-                             origin,
-                             x_axis,
-                             pos_error,
-                             Gain_error_factor,
-                             lag_error,
-                             all_frames)
-{
-  n_frames = length(all_frames$signal)
-  p = geo_to_local(origin = origin,
-                   x_axis = x_axis,
-                   points = geo_locations)
-  data.frame(
-    names = labels,
-    x_min = p[, 1] - pos_error,
-    x_max = p[, 1] + pos_error,
-    y_min = p[, 2] - pos_error,
-    y_max = p[, 2] + pos_error,
-    lag_min = -lag_error,
-    lag_max = +lag_error
-  ) -> d
-  d$Gain_min = rep(list(rep(1 / Gain_error_factor, n_frames)), nrow(p))
-
-  d$Gain_max = rep(list(rep(Gain_error_factor, n_frames)), nrow(p))
-
-  d
-
+  max_lag = ((max(rec$x) - min(rec$x)) ^ 2 + (max(rec$y) - min(rec$y)) ^ 2) ^
+    0.5 / velocity_of_sound
 }
 
 
-frame_to_signal_fft <- function(rec, all_frames)
-{
-  fs = rec$fs
-  all_frames$signal_for_fft <-
-
-    lapply(1:length(all_frames$t_start)
-           , function (i)
-           {
-             i_start = all_frames$t_start[i] * fs + 1
-             nsamples = min((all_frames$t_end[i] - all_frames$t_start[i]) * fs,
-                            length(rec$framed_raw_signal[[i]]) - i_start + 1)
-             nsamples = 2 * floor(nsamples / 2)
-
-             i_end = i_start + nsamples - 1
-             hn = e1071::hanning.window(nsamples)
-             lapply(rec$framed_raw_signal, function(s) s[i_start:i_end] * hn)
-           })
-  all_frames$w <- lapply(1:length(all_frames$t_start), function (i)
+obtain_source_positions_from_lags_per_frame <-
+  function (rec,
+            frame,
+            max_number_of_sources_per_frame,
+            fraction_of_sum_of_values,
+            receptors = NULL,
+            offset = NULL,
+            t_start = NULL,
+            t_end = NULL,
+            min_freq = NULL,
+            max_freq = NULL,
+            lag_window_in_meters = NULL,
+            keep_if_z_is_greater_than = 5,
+            keep_the_best_n = 50,
+            velocity_of_sound = 334,
+            signal_filter = T,
+            freq_filter = F)
   {
-    i_start = all_frames$t_start[i] * fs + 1
-    nsamples = min((all_frames$t_end[i] - all_frames$t_start[i]) * fs,
-                   length(rec$framed_raw_signal[[i]]) - i_start + 1)
-    nsamples = 2 * floor(nsamples / 2)
-    c(0:(nsamples / 2 - 1), (-nsamples / 2):-1) * fs / nsamples * 2 * pi
-  })
-  all_frames$fft <- lapply(1:length(all_frames$t_start), function (i)
-       lapply(all_frames$signal_for_fft[[i]],fft))
-  all_frames
-}
+    lag_max = obtain_lag_max(
+      rec,
+      frame = frame,
+      lag_window_in_meters = lag_window_in_meters,
+      velocity_of_sound = velocity_of_sound
+    )
 
-select_juicy_freq <- function(all_frames, fs, min_freq, fraction)
+    if (has_element_and_matches_this(
+      frame,
+      "position",
+      list_to_match = list(
+        min_freq = min_freq,
+        max_freq = max_freq,
+        signal_filter = signal_filter,
+        freq_filter = freq_filter,
+        keep_if_z_is_greater_than = keep_if_z_is_greater_than,
+        keep_the_best_n = keep_the_best_n,
+        lag_max = lag_max,
+        max_number_of_sources_per_frame = max_number_of_sources_per_frame,
+        fraction_of_sum_of_values = fraction_of_sum_of_values,
+        receptors = receptors,
+        offset = offset
+      )
+    ))
+    return(frame)
+
+
+    if (is.null(receptors))
+      receptors = get_receptors(rec)
+
+
+
+    frame <- obtain_shared_peaks_per_frame(
+      rec = rec,
+      frame = frame,
+      t_start = t_start,
+      t_end = t_end ,
+      min_freq = min_freq,
+      max_freq = max_freq,
+      lag_window_in_meters = lag_window_in_meters,
+      keep_if_z_is_greater_than = keep_if_z_is_greater_than,
+      keep_the_best_n = keep_the_best_n,
+      velocity_of_sound = velocity_of_sound,
+      signal_filter = signal_filter,
+      freq_filter = freq_filter
+    )
+    delays = dplyr::select(frame$shared_peaks$delays, dplyr::starts_with('lag_'))
+    min_sum_of_values = max(frame$shared_peaks$d$sum_of_values)*fraction_of_sum_of_values
+    n_values = sum(frame$shared_peaks$d$sum_of_values > min_sum_of_values)
+
+    n_delays = min(nrow(delays), max_number_of_sources_per_frame, n_values)
+    delays = delays[seq_len(n_delays),]
+
+    if (!is.null(offset) & (n_delays > 0))
+      delays = t(t(delays) - offset / 1000)
+
+
+    frame$shared_peaks$positions <-
+      optimize_all_time_lags_to_their_source_positions(delays,
+                                                       receptors = receptors,
+                                                       sound_velocity = velocity_of_sound)
+    return(frame)
+  }
+
+
+obtain_source_positions_from_lags <- function(rec,
+                                              max_number_of_sources_per_frame,
+                                              fraction_of_sum_of_values,
+                                              receptors = NULL,
+                                              offset = NULL,
+                                              t_start = NULL,
+                                              t_end = NULL,
+                                              min_freq = NULL,
+                                              max_freq = NULL,
+                                              lag_window_in_meters = NULL,
+                                              keep_if_z_is_greater_than = 5,
+                                              keep_the_best_n = 50,
+                                              velocity_of_sound = 334,
+                                              signal_filter = F,
+                                              freq_filter = T)
 {
-  sel = all_frames[c("t_start", "t_end", "sources")]
-  s = lapply(1:length(all_frames$signal), function (i)
+  if ("frames" %in% names(rec))
   {
-    fft = rowSums(Mod(all_frames[i, ]$fft[[1]]))
-    nsamples = length(fft)
-    i_min = min_freq / fs * nsamples
-
-    sort.int(fft[i_min:(nsamples / 2)],
-             decreasing = T,
-             index.return = T)$ix + i_min - 1
-  })
-  sel$fft = lapply(1:length(all_frames$signal),
-                   function (i)
-                     all_frames$fft[[i]][s[[i]][1:(length(s[[i]]) *
-                                                     fraction)], ])
-  sel$w = lapply(1:length(all_frames$signal),
-                 function (i)
-                   all_frames$w[[i]][s[[i]][1:(length(s[[i]]) * fraction)]])
-  sel
-
+    rec$frames = lapply(rec$frames,
+                        function(frame)
+                          return(
+                            obtain_source_positions_from_lags_per_frame(
+                              rec = rec,
+                              frame = frame,
+                              receptors = receptors,
+                              offset = offset,
+                              max_number_of_sources_per_frame = max_number_of_sources_per_frame,
+                              fraction_of_sum_of_values = fraction_of_sum_of_values,
+                              t_start = t_start,
+                              t_end = t_end,
+                              min_freq = min_freq,
+                              max_freq = max_freq,
+                              lag_window_in_meters = lag_window_in_meters,
+                              keep_if_z_is_greater_than = keep_if_z_is_greater_than,
+                              keep_the_best_n = keep_the_best_n,
+                              velocity_of_sound = velocity_of_sound,
+                              signal_filter = signal_filter,
+                              freq_filter = freq_filter
+                            )
+                          ))
+    return (rec)
+  }
+  else
+    return (
+      obtain_source_positions_from_lags_per_frame(
+        rec,
+        rec,
+        max_number_of_sources_per_frame,
+        fraction_of_sum_of_values = fraction_of_sum_of_values,
+        receptors = receptors,
+        offset = offset,
+        t_start,
+        t_end ,
+        min_freq,
+        max_freq,
+        lag_window_in_meters,
+        keep_if_z_is_greater_than,
+        keep_the_best_n,
+        velocity_of_sound,
+        freq_filter
+      )
+    )
 }
 
 
 
-optimize_localizations <-
+
+
+
+optimize_receptors_using_gcc_lags_old <-
   function(rec,
-           all_frames,
-           all_receptors,
-           all_sources,
-           lambda,
+           max_number_of_sources_per_frame,
+           fraction_of_sum_of_values,
+           only_offset = T,
+           t_start = NULL,
+           t_end = NULL,
+           min_freq = NULL,
+           max_freq = NULL,
+           lag_window_in_meters = NULL,
+           keep_if_z_is_greater_than = 5,
+           keep_the_best_n = 50,
+           velocity_of_sound = 334,
+           freq_filter = F)
+  {
+    n_receptors = length(rec$labels)
+
+    receptors_init = get_receptors(rec)
+
+    receptors_max = get_receptors_max(rec)
+    receptors_min = get_receptors_min(rec)
+
+    offset_max = rep(get_offset_max(rec), n_receptors - 1) * 1000
+
+    beta_to_offset <- function(beta)
+    {
+      return (beta[1:(n_receptors - 1)])
+    }
+
+    beta_to_receptors <- function(beta)
+    {
+      return (matrix(c(0, 0, 0, beta[n_receptors + 0:(n_receptors * 2 - 4)]), nrow = 2))
+    }
+
+    source_position_from_beta <- function(offset, receptors)
+    {
+      pos_rec = obtain_source_positions_from_lags(
+        rec = rec,
+        max_number_of_sources_per_frame = max_number_of_sources_per_frame,
+        fraction_of_sum_of_values = fraction_of_sum_of_values,
+        offset = offset,
+        receptors = receptors,
+
+        velocity_of_sound = velocity_of_sound
+      )
+      return (pos_rec)
+    }
+
+    sqr_sum_per_offset <- function(beta)
+    {
+      offset = beta_to_offset(beta)
+      if (!only_offset)
+        receptors = beta_to_receptors(beta)
+      else
+        receptors = get_receptors(rec)
+
+      pos_rec = source_position_from_beta(offset, receptors)
+
+      ss = Reduce(function(p, frame)
+        p + sum(frame$shared_peaks$positions$ss),
+        pos_rec$frames,
+        0)
+      print(list(
+        offset = offset,
+        receptors = receptors,
+        ss = ss
+      ))
+      return(ss)
+    }
+
+
+    offset_init = numeric(n_receptors - 1)
+    receptors_init = as.numeric(receptors_init)[4:(2 * n_receptors)]
+
+
+
+    beta_init = c(offset_init, receptors_init)
+
+
+    receptor_min = as.numeric(receptors_min)[4:(2 * n_receptors)]
+    receptor_max = as.numeric(receptors_max)[4:(2 * n_receptors)]
+
+    beta_min = c(-offset_max, receptor_min)
+
+    beta_max = c(offset_max, receptor_max)
+
+    if (only_offset)
+    {
+      beta_init = offset_init
+      beta_min = -offset_max
+      beta_max = offset_max
+    }
+
+    #  opt_res = pracma::nelder_mead(sqr_sum_per_offset, beta_init)
+
+    #
+    #opt_res=nloptr::neldermead(
+
+
+
+    opt_res = nloptr::sbplx(
+      x0 = beta_init,
+      fn = sqr_sum_per_offset,
+      lower = beta_min,
+      upper = beta_max
+      #  nl.info = T,
+      #  control = list(maxeval = 1000)
+    )
+    offsets_opt = opt_res$xmin
+
+    offset = beta_to_offset(offsets_opt)
+    receptors = beta_to_receptors(offsets_opt)
+    pos_opt = source_position_from_beta(offset, receptors)
+    return (list(opt_res = opt_res, pos_opt = pos_opt))
+  }
+
+
+
+get_lags_dataframe <- function(rec)
+{
+  return (Reduce(function(p, i) {
+    d = rec$frames[[i]]$shared_peaks$d
+    if (nrow(d) == 0)
+      return (p)
+    else
+    {
+      d$t_start = sp_rec_1$frames[[i]]$i_start[3] / sp_rec_1$fs[1]
+      d$i = i
+      return(rbind(p, d))
+    }
+  }, 1:length(sp_rec_1$frames), data.frame()) -> sp_d_1)
+
+}
+
+
+
+
+
+#' gcc-phase peaks that are likely to be originated by different sound sources
+#' (as opposed to noise correlation artifacts)
+#'
+#'
+#'
+#'
+#' @param sp_rec
+#'
+#' @return
+#' @export
+#'
+#' @examples
+filter_good_gcc_peaks_for_calibration <- function(sp_rec)
+{
+
+}
+
+
+
+
+
+
+
+
+optimize_receptors_using_gcc_lags <-
+  function(rec,
+           max_number_of_sources_per_frame,
+           fraction_of_sum_of_values,
+           only_offset = T,
+           t_start = NULL,
+           t_end = NULL,
+           min_freq = NULL,
+           max_freq = NULL,
+           lag_window_in_meters = NULL,
+           keep_if_z_is_greater_than = 5,
+           keep_the_best_n = 50,
+           velocity_of_sound = 334,
+           freq_filter = F)
+  {
+    n_receptors = length(rec$labels)
+
+    receptors_init = get_receptors(rec)
+
+    receptors_max = get_receptors_max(rec)
+    receptors_min = get_receptors_min(rec)
+
+    offset_max = rep(get_offset_max(rec), n_receptors - 1) * 1000
+
+    beta_to_offset <- function(beta)
+    {
+      return (beta[1:(n_receptors - 1)])
+    }
+
+    beta_to_receptors <- function(beta)
+    {
+      return (matrix(c(0, 0, 0, beta[n_receptors + 0:(n_receptors * 2 - 4)]), nrow = 2))
+    }
+
+    source_position_from_beta <- function(offset, receptors)
+    {
+      pos_rec = obtain_source_positions_from_lags(
+        rec = rec,
+        max_number_of_sources_per_frame = max_number_of_sources_per_frame,
+        fraction_of_sum_of_values = fraction_of_sum_of_values,
+        offset = offset,
+        receptors = receptors,
+
+        velocity_of_sound = velocity_of_sound
+      )
+      return (pos_rec)
+    }
+
+    sqr_sum_per_offset <- function(beta)
+    {
+      offset = beta_to_offset(beta)
+      if (!only_offset)
+        receptors = beta_to_receptors(beta)
+      else
+        receptors = get_receptors(rec)
+
+      pos_rec = source_position_from_beta(offset, receptors)
+
+      ss = Reduce(function(p, frame)
+        p + sum(frame$shared_peaks$positions$ss),
+        pos_rec$frames,
+        0)
+      print(list(
+        offset = offset,
+        receptors = receptors,
+        ss = ss
+      ))
+      return(ss)
+    }
+
+
+    offset_init = numeric(n_receptors - 1)
+    receptors_init = as.numeric(receptors_init)[4:(2 * n_receptors)]
+
+
+
+    beta_init = c(offset_init, receptors_init)
+
+
+    receptor_min = as.numeric(receptors_min)[4:(2 * n_receptors)]
+    receptor_max = as.numeric(receptors_max)[4:(2 * n_receptors)]
+
+    beta_min = c(-offset_max, receptor_min)
+
+    beta_max = c(offset_max, receptor_max)
+
+    if (only_offset)
+    {
+      beta_init = offset_init
+      beta_min = -offset_max
+      beta_max = offset_max
+    }
+
+    #  opt_res = pracma::nelder_mead(sqr_sum_per_offset, beta_init)
+
+    #
+    #opt_res=nloptr::neldermead(
+
+
+
+    opt_res = nloptr::sbplx(
+      x0 = beta_init,
+      fn = sqr_sum_per_offset,
+      lower = beta_min,
+      upper = beta_max
+      #  nl.info = T,
+      #  control = list(maxeval = 1000)
+    )
+    offsets_opt = opt_res$xmin
+
+    offset = beta_to_offset(offsets_opt)
+    receptors = beta_to_receptors(offsets_opt)
+    pos_opt = source_position_from_beta(offset, receptors)
+    return (list(opt_res = opt_res, pos_opt = pos_opt))
+  }
+
+
+
+
+
+
+
+
+
+optimize_localizations_by_gcc_peaks <-
+  function(rec,
+           n_max_sources = 20,
            vsound = 343,
            beta_optimal = NULL,
-           algorithm = "sbplx",
            maxeval = 10000)
   {
-    n_receptors = nrow(all_receptors)
-    n_frames = length(all_frames$signal)
-    n_sources = nrow(all_sources)
-
-
-    n_par_receptor = 3
+    n_receptors = length(rec$labels)
+    n_frames = length(f_rec_1$frames)
 
     vector_to_receptor <- function(beta, i, offset, n_frames)
     {
@@ -181,70 +595,6 @@ optimize_localizations <-
         receptor$lag_max
       )
     }
-    vector_to_source <- function(all_sources, beta, i, offset)
-    {
-      lag = (i - 1) * 2 + offset
-      name = all_sources$names[i]
-      data.frame(names = name,
-                 x = beta[1 + lag],
-                 y = beta[2 + lag])
-
-    }
-
-
-
-    source_to_vector_min <- function(source)
-    {
-      c(source$x_min, source$y_min)
-    }
-    source_to_vector_max <- function(source)
-    {
-      c(source$x_max, source$y_max)
-    }
-
-
-
-    receptors_sources_to_beta_min <-
-      function(all_receptors, all_sources, n_frames)
-      {
-        return(c(
-          Reduce(
-            function(v, i)
-              c(v, receptor_to_vector_min(all_receptors[i, ], n_frames)),
-            1:nrow(all_receptors),
-            c()
-          ),
-          Reduce(
-            function(v, i)
-              c(v, source_to_vector_min(all_sources[i, ])),
-            1:nrow(all_sources),
-            c()
-          )
-        ))
-      }
-
-
-    receptors_sources_to_beta_max <-
-      function(all_receptors, all_sources, n_frames)
-      {
-        return(c(
-          Reduce(
-            function(v, i)
-              c(v, receptor_to_vector_max(all_receptors[i, ], n_frames)),
-            1:nrow(all_receptors),
-            c()
-          ),
-          Reduce(
-            function(v, i)
-              c(v, source_to_vector_max(all_sources[i, ])),
-            1:nrow(all_sources),
-            c()
-          )
-        ))
-      }
-
-
-
 
     beta_to_receptors <- function(beta, n_receptors, n_frames)
     {
@@ -282,6 +632,9 @@ optimize_localizations <-
           1:n_sources,
           data.frame())
       }
+
+
+
 
 
     sqr_sum_per_frequency <-

@@ -14,13 +14,13 @@ calculate_list_of_cross_correlations <- function(ffted_signal)
 
   ffted_signal$ccf = lapply(1:(n - 1),
                             function(i)
-                              lapply(i:(n - 1),
+                              lapply((i+1):n,
                                      function(j)
                                        Re(
                                          fft(Conj(ffted_signal$fft[[1]][[i]]) *
-                                               ffted_signal$fft[[1]][[j + 1]], inverse = T)
+                                               ffted_signal$fft[[1]][[j]], inverse = T)
                                        )))
 
-  ffted_signal
+  return (ffted_signal)
 }
 

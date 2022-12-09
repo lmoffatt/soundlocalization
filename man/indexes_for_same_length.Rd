@@ -4,7 +4,7 @@
 \alias{indexes_for_same_length}
 \title{calculates the indexes so all the waves are of the same size}
 \usage{
-indexes_for_same_length(signals)
+indexes_for_same_length(rec)
 }
 \arguments{
 \item{list_of_waves}{a list of class Wave objects}

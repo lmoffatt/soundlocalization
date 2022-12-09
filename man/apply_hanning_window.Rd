@@ -4,7 +4,7 @@
 \alias{apply_hanning_window}
 \title{applies a hanning window}
 \usage{
-apply_hanning_window(equalized_signal)
+apply_hanning_window(rec)
 }
 \arguments{
 \item{equalized_signal}{the signal should be already in matrix form}

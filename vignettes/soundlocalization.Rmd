@@ -63,7 +63,7 @@ time_of_recording = ymd_hm("2022-09-03 10:52", tz = "America/Buenos_Aires")
 The receptors were placed in the same line (all the xs were equal) at
 distances of 5, 4 and 4 meters.
 
-We use the function recordings to read all the recordings at once.
+We use the function recordings to organize all the recordings at once.
 
 ```{r}
 rec<-recordings(files = files,
@@ -79,227 +79,70 @@ Lets see the organization of rec
 str(rec)
 ```
 
-We see that it is a dataframe with information on + a label for each
-recording, + precise ubication in time (day and time of recording) and
-space (latitude and longitude in a meter precision) + the directory and
-filename of the recording, + information on the recording such as number
-of samples, a boolean indicating if the recording was stereo, the
-frequency of sampling, the number of bits and if the pcm is complied. +
-signal: a list of integer vectors of different sizes for each one of the
-recordings. The signal contains the actual recording, in a limited
-number of bits (16)
+Now the idea of soundlocalization is to locate the time, frequency and point of origin of the sounds of a recording. 
 
-Now, let see a graphical representation of the sound recorded at each
-site.
+There are two elements in soundlocalization:
 
-```{r}
-sound_plot(recordings = rec )
+1. Sound receptors
+2. Sound sources (or emitters)
 
-```
+We have an initial measure of the position of the receptors and possibly of some sources. 
 
-the recordings were not sinchronized but we can use the cross
-correlation function to approximately sinchronize them
+We have the data of the time of each of the simultaneous recordings done on each receptor. 
 
-```{r}
-a_recordings<-align_recordings(rec)
-str(a_recordings)
-```
+With purpose of a clear analysis of the recordings it is convenient to define frames as intervals of time and frequency. 
 
-Now, lets analyze the spectral components of the recordings in 10
-seconds frames
+The main tool for the separation of the sound sources is the generalized cross correlation -phase, a normalization of the cross correlation function. The idea is that separate sources would generate separate peaks in the cross correlation between the receptor pairs. 
+The possition of the peaks is given by the time difference in the arrival of the sound to different receptors, therefore by analyzing all the possible pairs, it is possible to assign the peaks of the pair A-B to the peaks in B-C and A-C. 
+One of the algorithms of soundlocalization identifies the shared peaks that arrive at given times at all the receptors. 
+A second algorithm assign the shared peaks to source positions. However those positions depend on a proper sincronization of the recordings, something that is usually not feasible, so we need a third algorithm to sinchronize the recordings, that is determine the relative offset of each receptor. This is possible if we know with precision the position of one or more sound sources or if we have a good number of them. 
 
-```{r}
-for (i in 1:length(a_recordings$framed_raw_signal))
-{
-  spectro_plot(recordings = a_recordings,i,start = 118,end=120.8,min_freq = 00,max_freq = 10000,listen = T)
+The whole idea of soundlocalization consist in optimize everything at the same time: the offset of each receptor, the precise relative position of each receptor and sound source and the gain of each receptor at each time (sometimes the recordings have automatic gain adjustments)
 
-}
-```
+For doing that it is necessary to do three things: 
+1. Indicate the possible position of the receptors with some error estimates
+2. indicate the possible time, frequency and position coordinates of some sounds sources.
+3. Organize the recording on different frames defined by time and frequency intervals (might be also regions of space¿?).
 
-```{r}
-spectro_plot_luc(rec = a_recordings,start = 118,end=120.8,min_freq = 00,max_freq = 6000,window_length_meters = 20)
 
-```
+# Indicate the position of receptors with their errors
 
-Lets see the cross correlation plot
 
-```{r}
-  gcc_phase_plot(rec = a_recordings,t_start =  118,t_end = 120.8,min_freq = 500,max_freq = 6000,lag_window_in_meters = 30,remove_if_z_is_greater_than=5)
-```
-```{r}
-plot_shared_peaks(gcc =  a_recordings,t_start =  118,t_end = 120.8,min_freq = 500,max_freq =  6000,lag_window_in_meters = 30, show_greatest_n_peaks = 5)
 
-```
+The idea is to use geocoordinates for the position (including altitude for height) and UTC for time of the recording. The frequecy is simpler to understand. 
 
-```{r}
-luciano_voice<-set_source_list(names=c("luciano_voice"),x_pos_min = -2,x_pos_max = 2, y_pos_min = 11.3,y_pos_max = 15.3,min_freq =500,max_freq = 2000 )
 
-luciano_bird<-set_source_list(names=c("luciano_bird"),x_pos_min = 1,x_pos_max = 50, y_pos_min = -10,y_pos_max = 25,min_freq =3000,max_freq = 6000 )
 
-luciano_street_noise<-set_source_list(names=c("luciano_street_noise"),x_pos_min = 20,x_pos_max = 200, y_pos_min = -200,y_pos_max = 200,min_freq =000,max_freq = 500 )
-```
 
-```{r}
-luciano_frame<-set_frame_list(t_start = 118,t_end=120.8,sourceList = c(luciano_voice$names,luciano_bird$names,luciano_street_noise$names))
-str(luciano_frame)
-```
-
-```{r}
-luciano_frame_sources<-rbind(luciano_voice,luciano_bird,luciano_street_noise)
-luciano_frame_sources
-```
-
-```{r}
-for (i in 1:length(a_recordings$framed_raw_signal))
-{
-  spectro_plot(recordings = a_recordings,i,start = 120.8,end=122,listen=T,min_freq = 00,max_f=5000,listen_freq = 1)
-  
- # listen(recordings = a_recordings,i,start = 120.8,end=125)
-}
-```
+Now we define a list of some identified sound sources
 
 
 ```{r}
-andrea_voice<-set_source_list(names=c("andrea_voice"),x_pos_min = -2,x_pos_max = 2, y_pos_min = -2,y_pos_max = 2,min_freq =500,max_freq = 3500 )
-joaquin_voice<-set_source_list(names=c("joaquin_voice"),x_pos_min = -2,x_pos_max = 2, y_pos_min = 2.5,y_pos_max = 6.5,min_freq =500,max_freq = 2500 )
-
-andrea_bird<-set_source_list(names=c("andrea_bird"),x_pos_min = 1,x_pos_max = 50, y_pos_min = -10,y_pos_max = 25,min_freq =3000,max_freq = 6000 )
-
-andrea_street_noise<-set_source_list(names=c("andrea_street_noise"),x_pos_min = 20,x_pos_max = 200, y_pos_min = -200,y_pos_max = 200,min_freq =000,max_freq = 500 )
+sources = set_sources(
+  label = c(
+    'Andrea_voice',
+    'Joaquin_voice',
+    'Candela_voice',
+    'Luciano_voice'
+  ),
+  x_pos = c(0, 4.5, 9.3, 13.3),
+  y_pos = c(0.1, 0.1, 0.1, 0.1),
+  error = 2,
+  t_recordings = c('Andrea',
+                   'Joaquin',
+                   'Candela',
+                   'Luciano'),
+  t_starts = c(123.221, 121.876, 122.556,120.460),
+  t_ends = c(124.109, 122.433,123.249,122.969),
+  min_freq = 500,
+  max_freq = 6000)
+sources
 ```
 
-```{r}
-andrea_frame<-set_frame_list(t_start = 120.8,t_end=122,sourceList = c(andrea_voice$names,joaquin_voice$names,andrea_bird$names#,andrea_street_noise$names)
-                                                                      ))
-
-andrea_frame_sources<-rbind(andrea_voice,joaquin_voice,andrea_bird#,andrea_street_noise
-                            )
-```
-
-```{r}
-  spectro_plot(recordings = a_recordings,4,start = 0,end=10,listen=F,min_freq = 2500,max_f=4500,listen_freq = 1)
-
-```
-
-```{r}
-  spectro_plot_luc(rec =  a_recordings,i,start = 122,end=127, min_freq = 500,max_freq = 4000)
- # listen(recordings = a_recordings,i,start = 120.8,end=125)
-
-candela_voice<-set_source_list(names=c("candela_voice"),x_pos_min = -2,x_pos_max = 2, y_pos_min = 7,y_pos_max = 11,min_freq =500,max_freq = 3000 )
-
-candela_bird<-set_source_list(names=c("candela_bird"),x_pos_min = 1,x_pos_max = 50, y_pos_min = -10,y_pos_max = 25,min_freq =3000,max_freq = 6000 )
+Now, with the information on the sound sources, we can organize the analysis of the recordings in different frames. Each frame has a start and end time (according to a given recording)
 
 
-candela_street_noise<-set_source_list(names=c("candela_street_noise"),x_pos_min = 20,x_pos_max = 200, y_pos_min = -200,y_pos_max = 200,min_freq =000,max_freq = 500 )
-```
-
-```{r}
-candela_frame<-set_frame_list(t_start = 122,t_end=127,sourceList = c(candela_voice$names,candela_bird$names,candela_street_noise$names))
-candela_frame_sources<-rbind(candela_voice,candela_bird,candela_street_noise)
-```
-
-```{r}
-for (i in 1:length(a_recordings$framed_raw_signal))
-{
-  spectro_plot(recordings = a_recordings,i,start = 0,end=9,listen=T, min_freq = 2500,max_freq = 4000)
- # listen(recordings = a_recordings,i,start = 120.8,end=125)
-}
-
-initial_bird_1<-set_source_list(names=c("initial_bird_1"),x_pos_min = 1,x_pos_max = 50, y_pos_min = -20,y_pos_max = 25,min_freq =2000,max_freq = 6000 )
-
-initial_bird_2<-set_source_list(names=c("initial_bird_2"),x_pos_min = 1,x_pos_max = 50, y_pos_min = -10,y_pos_max = 25,min_freq =2000,max_freq = 6000 )
-
-initial_bird_3<-set_source_list(names=c("initial_bird_3"),x_pos_min = 1,x_pos_max = 50, y_pos_min = -10,y_pos_max = 35,min_freq =2000,max_freq = 6000 )
-initial_street_noise<-set_source_list(names=c("initial_street_noise"),x_pos_min = 20,x_pos_max = 200, y_pos_min = -200,y_pos_max = 200,min_freq =000,max_freq = 500 )
-```
-
-```{r}
-initial_frame<-set_frame_list(t_start = 0,t_end=9,sourceList = c(initial_bird_1$names,initial_bird_2$names,initial_bird_3$names#,initial_street_noise$names
-                                                                 ))
-initial_frame_sources<-rbind(initial_bird_1,initial_bird_2,initial_bird_3#,initial_street_noise
-                             )
-
-```
-
-```{r}
-all_frames=rbind(luciano_frame,andrea_frame,candela_frame,initial_frame)
-
-```
-
-```{r}
-all_frames<-frame_to_signal_fft(a_recordings,all_frames = all_frames)
-str(all_frames)
-all_luciano_frames<-frame_to_signal_fft(a_recordings,all_frames = luciano_frame)
-```
-
-```{r}
-all_initial_frames<-frame_to_signal_fft(a_recordings,all_frames = initial_frame)
-
-str(all_initial_frames)
-```
-
-```{r}
-luciano_ccf_frame<-calculate_list_of_cross_correlations(all_luciano_frames)
-```
-
-```{r}
-
-all_receptors$x=all_receptors$x_min/2+all_receptors$x_max/2
-all_receptors$y=all_receptors$y_min/2+all_receptors$y_max/2
-
-locatiogram(single_frames = luciano_ccf_frame,receptors = all_receptors)->locatio_luciano
-```
-
-```{r}
-juicy_frames<-select_juicy_freq(all_frames = all_frames,fs = recordings$meta_data$fs[1],min_freq = 1000,fraction = 0.002)
-
-luciano_juicy_frames<-select_juicy_freq(all_frames = all_luciano_frames,fs = recordings$meta_data$fs[1],min_freq = 500,fraction = 0.05)
-
-str(luciano_juicy_frames)
-```
-
-```{r}
-initial_juicy_frames<-select_juicy_freq(all_frames = all_initial_frames,fs = recordings$meta_data$fs[1],min_freq = 4000,fraction = 0.002)
-
-str(initial_juicy_frames)
-```
-
-```{r}
-all_sources=rbind(luciano_frame_sources,andrea_frame_sources,candela_frame_sources,initial_frame_sources)
-all_sources
 
 
-```
-
-get the receptors
-
-```{r}
 
 
-all_receptors<-get_receptorList(labels=labels,geo_locations = geo_locations,origin =geo_locations[1,],x_axis = geo_locations[2,],pos_error = 2,Gain_error_factor =200,lag_error = 30,all_frames
-  )
-all_receptors
-```
-
-```{r}
-luciano_receptors<-get_receptorList(labels=labels,geo_locations = geo_locations,origin =geo_locations[1,],x_axis = geo_locations[2,],pos_error = 2,Gain_error_factor =200,lag_error = 30,all_luciano_frames
-  )
-luciano_receptors
-
-```
-
-Lets localize and isolate the proposed sources
-
-```{r}
-optimize_localizations(rec,all_frames=juicy_frames,all_receptors = all_receptors,all_sources =all_sources ,lambda = 0,algorithm = "stogo",maxeval = 1000)
-```
-
-```{r}
-optimize_localizations(rec,all_frames=luciano_juicy_frames,all_receptors = luciano_receptors,all_sources =luciano_frame_sources ,lambda = 0)->luciano_opt
-
-```
-
-```{r}
-optimize_localizations(rec,all_frames=initial_juicy_frames,all_receptors = all_receptors,all_sources =initial_frame_sources ,lambda = 0,algorithm = "sbplx")->initial_opt
-
-```

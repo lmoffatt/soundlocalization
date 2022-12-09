@@ -1,3 +1,24 @@
+apply_hanning_window_per_frame <- function(rec, frame)
+{
+  #  hn = e1071::hanning.window(nsamples)
+  stopifnot(length(unique(frame$nsamples)) == 1)
+
+  hn = seewave::ftwindow(frame$nsamples[1], wn = "hanning")
+  frame$filtered_by = "apply_hanning_window"
+  signal_for_fft =
+    lapply(1:length(rec$raw_signal), function (i_receptor)
+    {
+      is = frame$i_start[i_receptor]
+      ie = is + frame$nsamples[min(length(frame$nsamples), i_receptor)] - 1
+      s = rec$raw_signal[[i_receptor]][is:ie] * hn
+      return (s)
+    })
+  frame$signal_for_fft = signal_for_fft
+  return (frame)
+}
+
+
+
 #' applies a hanning window
 #'
 #' @param equalized_signal  the signal should be already in matrix form
@@ -6,19 +27,17 @@
 #' @export
 #'
 #' @examples
-apply_hanning_window <- function(equalized_signal)
+apply_hanning_window <- function(rec)
 {
-  is = equalized_signal$i_start
-  ie = is+equalized_signal$nsamples-1
-  nsamples = ie[1] - is[1] + 1
-  stopifnot(nsamples>2)
+  if ("frames" %in% names(rec))
+  {
+    rec$frames = lapply(rec$frames, function(frame)
+      apply_hanning_window_per_frame(rec, frame))
+    return (rec)
+  }
+  else
+    return (apply_hanning_window_per_frame(rec, rec))
 
-  #  hn = e1071::hanning.window(nsamples)
-  hn = seewave::ftwindow(nsamples,wn="hanning")
-  equalized_signal$filtered_by="apply_hanning_window"
-  equalized_signal$signal_for_fft = lapply(equalized_signal$framed_raw_signal, function(x)
-    x * hn)
-  equalized_signal
 }
 
 
@@ -37,19 +56,28 @@ downsample_frequency <-
   }
 
 
-downsample_time <- function(fs, signal, maxpoints, i_start, i_end)
-{
-  ns = length(signal)
-  i_s = max(1, i_start)
-  i_e = min(i_end, ns)
-  nsamples = i_e - i_s + 1
-  factor = ceiling(nsamples / maxpoints)
-  i = seq(from = i_s, to = i_e, by = factor)
-  return (i / fs)
-}
+downsample_time <-
+  function(fs,
+           signal,
+           maxpoints,
+           i_start = NULL,
+           i_end = NULL)
+  {
+    ns = length(signal)
+    i_s = max(1, i_start)
+    i_e = min(i_end, ns)
+    nsamples = i_e - i_s + 1
+    factor = ceiling(nsamples / maxpoints)
+    i = seq(from = i_s, to = i_e, by = factor)
+    return (i / fs)
+  }
 
 downsample_label <-
-  function(label, signal, maxpoints, i_start, i_end)
+  function(label,
+           signal,
+           maxpoints,
+           i_start = NULL,
+           i_end = NULL)
   {
     ns = length(signal)
     i_s = max(1, i_start)
@@ -60,16 +88,20 @@ downsample_label <-
     return (rep(label, length(i)))
   }
 
-downsample_signal <- function(signal, maxpoints, i_start, i_end)
-{
-  ns = length(signal)
-  i_s = max(1, i_start)
-  i_e = min(i_end, ns)
-  nsamples = i_e - i_s + 1
-  factor = ceiling(nsamples / maxpoints)
-  i = seq(from = i_s, to = i_e, by = factor)
-  return (signal[i])
-}
+downsample_signal <-
+  function(signal,
+           maxpoints,
+           i_start = NULL,
+           i_end = NULL)
+  {
+    ns = length(signal)
+    i_s = max(1, i_start)
+    i_e = min(i_end, ns)
+    nsamples = i_e - i_s + 1
+    factor = ceiling(nsamples / maxpoints)
+    i = seq(from = i_s, to = i_e, by = factor)
+    return (signal[i])
+  }
 
 
 standarize <- function(x, x_mean = NULL, x_sd = NULL)
@@ -102,6 +134,66 @@ standarization_blind_to_ouliers <-
   }
 
 
+apply_filter_per_frame <-
+  function(rec,
+           frame,
+           min_freq = NULL,
+           max_freq = NULL)
+  {
+    f = rec$fs[1]
+    if (is.null(min_freq))
+      min_freq = frame$min_freq
+    else
+      frame$min_freq = min_freq
+    if (is.null(max_freq))
+      max_freq = frame$max_freq
+    else
+      frame$max_freq = max_freq
+
+    if (is.null(min_freq) && is.null(max_freq))
+      return (apply_hanning_window_per_frame(rec, frame))
+    else
+    {
+      frame$filtered_by = "apply_filter"
+      if (is.null(min_freq))
+        min_freq = 0
+      if (is.null(max_freq))
+        max_freq = rec$fs / 2
+      frame$signal_for_fft =
+        lapply(1:length(rec$raw_signal),
+               function (i)
+               {
+                 is = frame$i_start[i]
+                 ie = is + frame$nsamples[i] - 1
+                 s = rec$raw_signal[[i]][is:ie]
+                 if (is.null(min_freq))
+                   return(seewave::ffilter(
+                     s,
+                     f = rec$fs[1],
+                     to = max_freq,
+                     wl = min(1024, length(s))
+                   )[, 1])
+                 else  if (is.null(max_freq))
+                   return (seewave::ffilter(
+                     s,
+                     f = rec$fs,
+                     from = min_freq,
+                     wl = min(1024, length(s))
+                   )[, 1])
+                 else
+                   return (seewave::ffilter(
+                     s,
+                     f = rec$fs,
+                     from = min_freq,
+                     to = max_freq,
+                     wl = min(1024, length(s))
+                   )[, 1])
+
+               })
+      return(frame)
+    }
+  }
+
 
 #' Title calculates all the cross correlation pairs
 #'
@@ -113,17 +205,20 @@ standarization_blind_to_ouliers <-
 #' @examples
 
 
-apply_filter <- function(rec, min_freq, max_freq)
+apply_filter <- function(rec,
+                         min_freq = NULL,
+                         max_freq = NULL)
 {
-  f = rec$fs[1]
-  rec$min_freq = min_freq
-  rec$max_freq = max_freq
-  rec$filtered_by="apply_filter"
-  rec$signal_for_fft =
-    lapply(rec$framed_raw_signal,
-           function(x)
-             seewave::ffilter(x, f, from = min_freq, to = max_freq)[, 1])
-  return(rec)
+  if ("frames" %in% names(rec))
+  {
+    rec$frames = lapply(rec$frames, function(frame)
+      apply_filter_per_frame(rec, frame, min_freq = min_freq, max_freq = max_freq))
+    return (rec)
+  }
+  else
+    return (apply_filter_per_frame(rec, rec, min_freq = min_freq, max_freq = max_freq))
+
+
 }
 
 
@@ -158,4 +253,3 @@ filter_by_lag <- function(fft1, fft2, lag, lag_error, fs)
     )
   )
 }
-

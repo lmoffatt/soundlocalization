@@ -121,9 +121,6 @@ sound_plot <-
     ggplot2::ggplot(d) +
       ggplot2::geom_line(ggplot2::aes(t, signal), alpha = alpha) +
       ggplot2::facet_wrap(~ receptor)
-
-
-
   }
 
 
@@ -176,6 +173,113 @@ cross_plot <-
 
 
 
+sound_plot_frames <-
+  function(recordings,
+           frame,
+           maxpoints = 1e4,
+           alpha = 0.7,
+           for_fft=FALSE)
+  {
 
+    signal=frame$framed_raw_signal
+    if (for_fft)
+      signal=frame$signal_for_fft
+
+    n=length(signal)
+    nsamples=frame$nsamples
+    fs = recordings$fs
+
+
+    s = Reduce(function(v, i)
+      c(
+        v,
+        downsample_signal(signal[[i]], maxpoints)
+      )
+      , 1:n, c())
+    t = Reduce(function(v, i)
+      c(
+        v,
+        downsample_time(fs, signal[[i]], maxpoints)
+      )
+      , 1:n, c())
+    receptor = Reduce(function(v, i)
+      c(
+        v,
+        downsample_label(recordings$filename[i],
+                         signal[[i]], maxpoints)
+      )
+      , 1:n, c())
+
+    d = data.frame(signal = s,
+                   t = t,
+                   receptor = receptor)
+
+    ggplot2::ggplot(d) +
+      ggplot2::geom_line(ggplot2::aes(t, signal), alpha = alpha) +
+      ggplot2::facet_wrap(~ receptor)
+
+
+
+  }
+
+
+
+frequency_plot_frames <- function(signal,
+                                  frame,
+                           f_start = 0,
+                           f_end = Inf,
+                           maxpoints = 1e4,
+                           alpha = 0.7,
+                           scale_x_log = F,
+                           dB = F)
+{
+  n = length(frame$fft)
+  fs = signal$fs
+  f_end = min(fs / 2, f_end)
+  nsamples = length(frame$fft[[1]])
+  df = fs / nsamples
+  i_start = f_start / df + 1
+  i_end = f_end / df + 1
+
+  d = data.frame(
+    fft = Reduce(function(v, i)
+      c(
+        v, downsample_signal(frame$fft[[i]], maxpoints, i_start, i_end)
+      )
+      , 1:n, c()),
+    freq = Reduce(function(v, i)
+      c(
+        v,
+        downsample_frequency(df, frame$framed_raw_signal[[i]], maxpoints, i_start, i_end)
+      )
+      , 1:n, c()),
+    file = Reduce(function(v, i)
+      c(
+        v,
+        downsample_label(signal$label[i],
+                         frame$framed_raw_signal[[i]], maxpoints, i_start, i_end)
+      )
+      , 1:n, c())
+
+
+  )
+  d$dB = 10 * log10(abs(d$fft) / max(abs(d$fft)))
+  if (scale_x_log)
+  {
+    ggplot2::ggplot(d) +
+      ggplot2::geom_line(ggplot2::aes(freq, dB, color = file), alpha = alpha) +
+      ggplot2::scale_x_log10() +
+      ggplot2::facet_wrap(~ file, scales = "free")
+  }
+  else if (dB)
+    ggplot2::ggplot(d) +
+    ggplot2::geom_line(ggplot2::aes(freq, dB, color = file), alpha = alpha) +
+    ggplot2::facet_wrap(~ file, scales = "free")
+  else
+    ggplot2::ggplot(d) +
+    ggplot2::geom_line(ggplot2::aes(freq, abs(fft), color = file), alpha = alpha) +
+    ggplot2::facet_wrap(~ file, scales = "free")
+
+}
 
 

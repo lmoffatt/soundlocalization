@@ -14,6 +14,8 @@ gcc_phase_data_for_lasso_source_reconstruction_plot <-
            velocity_of_sound = 334,
            freq_filter = F)
   {
+
+
     if (!"gcc_phase_std" %in% names(gcc))
       gcc <- gcc_phase_data(
         rec = gcc,
@@ -26,7 +28,7 @@ gcc_phase_data_for_lasso_source_reconstruction_plot <-
       )
     nsamples = floor(length(gcc$gcc_phase[[1]][[1]])/2)*2
 
-    lag_max=nsamples
+    lag_max=nsamples/2
     if (!is.null(lag_window_in_meters))
          lag_max = ceiling(lag_window_in_meters / velocity_of_sound * gcc$fs[1])
     gcc$lag_max = lag_max
