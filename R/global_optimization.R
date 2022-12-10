@@ -8,26 +8,31 @@
 
 
 
+
+
+
 recording_to_receptors <- function(rec, i_offset = 0)
 {
   n_receptors = length(rec$labels)
   logG = rep(0, n_receptors)
   offset = rep(0, n_receptors)
   x = rec$x
-  i_x = i_offset + seq_len(length(x) - 2)
+  i_x_beta = i_offset + seq_len(length(x) - 2)
+  i_x_par = 3:n_receptors
   y = rec$y
-  i_y = max(i_x) + seq_len(length(y) - 1)
-  i_logG = max(i_y) + seq_len(length(logG) - 1)
-  i_offset = max(i_logG) + seq_len(length(offset) - 1)
+  i_y_beta = max(i_x_beta) + seq_len(length(y) - 1)
+  i_y_par = max(i_x_par)+ 2:n_receptors
+  i_logG_beta = max(i_y_beta) + seq_len(length(logG) - 1)
+  i_logG_par = max(i_y_par) + seq_len(length(logG) - 1) +1
+  i_offset_beta = max(i_logG_beta) + seq_len(length(offset) - 1)
+  i_offset_par = max(i_logG_par) + seq_len(length(offset) - 1) +1
+
+
   return(list(
     values = cbind(x, y, logG, offset),
-    indexes = list(
-      i_x = i_x,
-      i_y = i_y,
-      i_logG = i_logG,
-      i_offset = i_offset
-    ),
-    offset = max(i_offset)
+    indexes_par_to_beta = c(i_x_beta, i_y_beta,i_logG_beta, i_offset_beta),
+    indexes_beta_to_par = c(i_x_par, i_y_par,i_logG_par, i_offset_par) ,
+    offset = max(i_offset_beta)
   ))
 }
 
@@ -82,66 +87,6 @@ freq_limits_to_their_indexes <- function(f_rec, frame, freq_limits)
 
 
 
-recording_to_single_frame_sources_position <- function(f_rec,
-                                                       frame,
-                                                       n_sources = NULL,
-                                                       x_min = NULL,
-                                                       x_max = NULL,
-                                                       y_min = NULL,
-                                                       y_max = NULL,
-                                                       freq_limits = rbind(c(0, 500),
-                                                                           c(500, 4000),
-                                                                           c(4000, 10000)))
-{
-  n_receptors = length(f_rec$labels)
-  if (is.null(n_sources))
-    n_sources = n_receptors - 1
-
-  fs = freq_limits_to_their_indexes(f_rec, frame, freq_limits)
-  sources = Reduce(function(prev, f)
-  {
-    pos = distribute_sources(f_rec, n_sources, x_min, x_max, y_min, y_max)
-    return(rbind(prev, pos))
-  }, fs, data.frame())
-
-  return(sources)
-}
-
-
-recording_to_single_frame_sources_signal <- function(f_rec,
-                                                     frame,
-                                                     offset,
-                                                     n_sources = NULL,
-                                                     x_min = NULL,
-                                                     x_max = NULL,
-                                                     y_min = NULL,
-                                                     y_max = NULL,
-                                                     freq_limits = rbind(c(0, 500),
-                                                                         c(500, 4000),
-                                                                         c(4000, 10000)))
-{
-  n_receptors = length(f_rec$labels)
-  if (is.null(n_sources))
-    n_sources = n_receptors - 1
-
-  fs = freq_limits_to_their_indexes(f_rec, frame, freq_limits)
-  sources = Reduce(function(prev, f)
-  {
-    pos = distribute_sources(f_rec, n_sources, x_min, x_max, y_min, y_max)
-
-    X = matrix(complex(length(f$index) * n_sources),
-               nrow = length(f$index),
-               ncol = n_sources)
-    return(rbind(prev, X))
-  }, fs, matrix(complex(0),
-                nrow = 0,
-                ncol = n_sources))
-
-  return(sources)
-}
-
-
-
 recording_to_single_frame_sources <- function(f_rec,
                                               frame,
                                               offset,
@@ -158,245 +103,130 @@ recording_to_single_frame_sources <- function(f_rec,
   if (is.null(n_sources))
     n_sources = n_receptors - 1
 
+  logG = numeric(n_receptors)
+  i_logG_beta = offset + seq_len(n_receptors - 1)
+  i_logG_par = seq_len(n_receptors - 1) + 1
+
   fs = freq_limits_to_their_indexes(f_rec, frame, freq_limits)
   sources = Reduce(function(prev, f)
   {
     pos = distribute_sources(f_rec, n_sources, x_min, x_max, y_min, y_max)
-    i_pos = prev$offset + seq_along(pos)
+    i_pos_beta = prev$offset + seq_along(pos)
+    i_pos_par = seq_along(pos)
 
     X = matrix(complex(length(f$index) * nrow(pos)),
                nrow = length(f$index),
                ncol = nrow(pos))
-    i_X = max(i_pos) + seq_along(X)
-    offset = max(i_X)
+    i_X_beta = max(i_pos_beta) + seq_along(X)
+    i_X_par = seq_along(X)
+    offset = max(i_X_beta)
     return(list(offset = offset,
                 values = c(prev$values,
                            list(
                              list(
                                pos = pos,
-                               i_pos = i_pos,
+                               i_pos_beta = i_pos_beta,
+                               i_pos_par = i_pos_par,
                                X = X,
-                               i_X = i_X
+                               i_X_beta = i_X_beta,
+                               i_X_par = i_X_par
+
                              )
                            ))))
-  }, fs, list(offset = offset + 1, values = list()))
+  }, fs, list(offset = max(i_logG_beta), values = list()))
+
 
   return(list(
-    logG = 0,
-    i_logG = offset + 1,
+    logG = logG,
+    i_logG_beta = i_logG_beta,
+    i_logG_par =i_logG_par,
     sources = sources$values,
     offset = sources$offset
   ))
 }
 
 
-recording_to_receptors_frame_group <- function(rec,
-                                               n_sources = NULL,
-                                               i_offset = 0,
-                                               x_min = NULL,
-                                               x_max = NULL,
-                                               y_min = NULL,
-                                               y_max = NULL,
-                                               freq_limits = rbind(c(0, 500),
-                                                                   c(500, 4000),
-                                                                   c(4000, 10000)))
-{
-  receptors = recording_to_receptors(rec, i_offset = i_offset)
-
-
-
-  source_positions = Reduce(function(prev, frame)
-  {
-    pos = recording_to_single_frame_sources_position(rec,
-                                                     frame,
-                                                     n_sources,
-                                                     x_min,
-                                                     x_max = x_max,
-                                                     y_min ,
-                                                     y_max ,
-                                                     freq_limits)
-    return(rbind(prev, pos))
-  }
-  ,
-  rec$frames,
-  data.frame())
-
-
-  source_signals = Reduce(function(prev, frame)
-  {
-    pos = recording_to_single_frame_sources_signal(rec,
-                                                   frame,
-                                                   n_sources,
-                                                   x_min,
-                                                   x_max = x_max,
-                                                   y_min ,
-                                                   y_max ,
-                                                   freq_limits)
-    return(rbind(prev, pos))
-  }
-  ,
-  rec$frames,
-  data.frame())
-
-  return(
-    list(
-      receptors = receptors,
-      source_positions = source_positions,
-      source_signals = source_signals
-    )
-  )
-
-}
-
-recording_to_receptors_frame <- function(rec,
-                                         n_sources = NULL,
-                                         i_offset = 0,
-                                         x_min = NULL,
-                                         x_max = NULL,
-                                         y_min = NULL,
-                                         y_max = NULL,
-                                         freq_limits = rbind(c(0, 500),
-                                                             c(500, 4000),
-                                                             c(4000, 10000)))
-{
-  receptors = recording_to_receptors(rec, i_offset = i_offset)
-
-
-
-  frames = Reduce(function(prev, frame)
-  {
-    sources = recording_to_single_frame_sources(
-      rec,
-      frame,
-      offset = prev$offset,
-      n_sources,
-      x_min,
-      x_max = x_max,
-      y_min ,
-      y_max ,
-      freq_limits
-    )
-    offset = sources$offset
-    return (list(offset = offset, values = c(prev$values, list(sources))))
-  }
-  ,
-  rec$frames,
-  list(offset = receptors$offset, values = list()))
-
-
-}
-
 recording_to_parameters <- function(rec,
-                                         n_sources = NULL,
-                                         i_offset = 0,
-                                         x_min = NULL,
-                                         x_max = NULL,
-                                         y_min = NULL,
-                                         y_max = NULL,
-                                         freq_limits = rbind(c(0, 500),
-                                                             c(500, 4000),
-                                                             c(4000, 10000)))
+                                    n_sources = NULL,
+                                    i_offset = 0,
+                                    x_min = NULL,
+                                    x_max = NULL,
+                                    y_min = NULL,
+                                    y_max = NULL,
+                                    freq_limits = rbind(c(0, 500),
+                                                        c(500, 4000),
+                                                        c(4000, 10000)))
 {
   receptors = recording_to_receptors(rec, i_offset = i_offset)
 
-
-
-  frames = Reduce(function(prev, frame)
-  {
-    sources = recording_to_single_frame_sources(
-      rec,
-      frame,
-      offset = prev$offset,
-      n_sources,
-      x_min,
-      x_max = x_max,
-      y_min ,
-      y_max ,
-      freq_limits
+  return(list(
+    receptors = receptors,
+    frames = Reduce(
+      function(prev, frame)
+      {
+        sources = recording_to_single_frame_sources(
+          rec,
+          frame,
+          offset = prev$offset,
+          n_sources,
+          x_min,
+          x_max = x_max,
+          y_min ,
+          y_max ,
+          freq_limits
+        )
+        offset = sources$offset
+        return (list(offset = offset, values = c(prev$values, list(sources))))
+      }
+      ,
+      rec$frames,
+      list(offset = receptors$offset, values = list())
     )
-    offset = sources$offset
-    return (list(offset = offset, values = c(prev$values, list(sources))))
-  }
-  ,
-  rec$frames,
-  list(offset = receptors$offset, values = list()))
-
-
+  ))
 }
 
-
-grouped_list_to_beta <- function(parameters)
+parameters_to_beta <- function(parameters)
 {
   n = parameters$frames$offset
   out = complex(n)
   recp = parameters$receptors$values
-  i_recp = parameters$receptors$indexes
-  out[i_recp$i_x] = recp[3:nrow(recp), "x"]
-  out[i_recp$i_y] = recp[2:nrow(recp), "y"]
-  out[i_recp$i_logG] = recp[2:nrow(recp), "logG"]
-  out[i_recp$i_offset] = recp[2:nrow(recp), "offset"]
+  i_beta = parameters$receptors$indexes_par_to_beta
+  i_par =parameters$receptors$indexes_beta_to_par
+  out[i_beta] = recp[i_par]
 
   for (i in seq_along(parameters$frames$values))
   {
     fr = parameters$frames$values[[i]]
-    out[fr$i_logG] <- fr$logG
+    out[fr$i_logG_beta] <- fr$logG[fr$i_logG_par]
     for (j in seq_along(fr$sources))
     {
       so = fr$sources[[j]]
-      out[so$i_pos] = so$pos
-      out[so$i_X] = so$X
+      out[so$i_pos_beta] = so$pos
+      out[so$i_X_beta] = so$X
     }
   }
 
   return(out)
 }
 
-
-list_to_beta <- function(parameters)
+beta_to_parameters <- function(beta, parameters)
 {
   n = parameters$frames$offset
-  out = complex(n)
+  i_beta = parameters$receptors$indexes_par_to_beta
+  i_par = parameters$receptors$indexes_beta_to_par
+
   recp = parameters$receptors$values
-  i_recp = parameters$receptors$indexes
-  out[i_recp$i_x] = recp[3:nrow(recp), "x"]
-  out[i_recp$i_y] = recp[2:nrow(recp), "y"]
-  out[i_recp$i_logG] = recp[2:nrow(recp), "logG"]
-  out[i_recp$i_offset] = recp[2:nrow(recp), "offset"]
 
+  parameters$receptors$values[i_par] = Re(beta[i_beta])
   for (i in seq_along(parameters$frames$values))
   {
     fr = parameters$frames$values[[i]]
-    out[fr$i_logG] <- fr$logG
-    for (j in seq_along(fr$sources))
-    {
-      so = fr$sources[[j]]
-      out[so$i_pos] = so$pos
-      out[so$i_X] = so$X
-    }
-  }
-
-  return(out)
-}
-
-beta_to_list <- function(beta, parameters)
-{
-  n = parameters$frames$offset
-  i_recp = parameters$receptors$indexes
-
-  parameters$receptors$values[3:nrow(recp), "x"] = beta[i_recp$i_x]
-  parameters$receptors$values[2:nrow(recp), "y"] = beta[i_recp$i_y]
-  parameters$receptors$values[2:nrow(recp), "logG"] = beta[i_recp$i_logG]
-  parameters$receptors$values[2:nrow(recp), "offset"] = beta[i_recp$i_offset]
-
-  for (i in seq_along(parameters$frames$values))
-  {
-    fr = parameters$frames$values[[i]]
-    beta[fr$i_logG] -> parameters$frames$values[[i]]$logG
+    Re(beta[fr$i_logG_beta]) -> parameters$frames$values[[i]]$logG[fr$i_logG_par]
     for (j in seq_along(fr$sources))
     {
       so = parameters$frames$values[[i]]$sources[[j]]
-      beta[so$i_pos] -> parameters$frames$values[[i]]$sources[[j]]$pos
-      beta[so$i_X] -> parameters$frames$values[[i]]$sources[[j]]$X
+      Re(beta[so$i_pos_beta]) -> parameters$frames$values[[i]]$sources[[j]]$pos[so$i_pos_par]
+      beta[so$i_X_beta] -> parameters$frames$values[[i]]$sources[[j]]$X[so$i_X_par]
     }
   }
 
@@ -404,51 +234,27 @@ beta_to_list <- function(beta, parameters)
 }
 
 
-get_receptors <- function(beta, parameters)
+get_sources<-function(parameters)
 {
-  n = parameters$frames$offset
-  recep = parameters$receptors$values
-  i_recp = parameters$receptors$indexes
-
-  recep[3:nrow(recep), "x"] = beta[i_recp$i_x]
-  recep[2:nrow(recep), "y"] = beta[i_recp$i_y]
-  recep[2:nrow(recep), "logG"] = beta[i_recp$i_logG]
-  recep[2:nrow(recep), "offset"] = beta[i_recp$i_offset]
-  return(recep)
+   ipos
 }
 
-get_sources_pos <- function(beta, parameters)
-{
-  for (i in seq_along(parameters$frames$values))
-  {
-    fr = parameters$frames$values[[i]]
-    beta[fr$i_logG] -> parameters$frames$values[[i]]$logG
-    for (j in seq_along(fr$sources))
-    {
-      so = parameters$frames$values[[i]]$sources[[j]]
-      beta[so$i_pos] -> parameters$frames$values[[i]]$sources[[j]]$pos
-      beta[so$i_X] -> parameters$frames$values[[i]]$sources[[j]]$X
-    }
-  }
-
-  return(parameters)
-}
 
 
 
 global_optimization <- function(f_rec)
 {
-  get_source_Amplitude <- function(parameters,xdata)
+  get_source_Amplitude <- function(parameters, xdata)
   {
     i_rec = xdata$i_rec
 
     i_frame = xdata$i_frame
 
+
+
     w = xdata$w
 
-    i_sources = xdata$i_sources
-
-    sources = get_sources(beta)
+    sources = get_sources(parameters)
 
     receptors = get_receptors(beta)
 
@@ -456,20 +262,21 @@ global_optimization <- function(f_rec)
 
     fG = get_frame_Gain(beta)
 
-    distances = get_receptor_source_distance(receptors, sources)
+    distances = get_source_receptor_distance()
 
     dist_recip = 1 / distances
 
     lags = distances / velocity_of_sound
 
-    A = dist_recip[i_rec,] * exp(-i * lags[i_rec,] * w)
+    A = dist_recip[i_rec, ] * exp(-i * lags[i_rec, ] * w)
     return(A)
   }
 
 
   predict_single_fft <- function(beta, xdata)
   {
-    A = get_source_Amplitude(beta, parameters,xdata)
+    parameters=beta_to_parameters(beta,parameters)
+    A = get_source_Amplitude(parameters, xdata)
     X = get_source_fft(beta, xdata)
     return(A %*% X)
 
