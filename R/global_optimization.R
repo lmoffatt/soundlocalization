@@ -1,27 +1,5 @@
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 recording_to_receptors <- function(rec, i_offset = 0)
 {
   n_receptors = length(rec$labels)
@@ -133,9 +111,9 @@ recording_to_single_frame_sources <- function(f_rec,
 
 
 
-    X = matrix(complex(length(f$index) * nrow(pos)),
-               nrow = length(f$index),
-               ncol = nrow(pos))
+      X = matrix(complex(length(f$index) * nrow(pos)),
+                 nrow = length(f$index),
+                 ncol = nrow(pos))
     i_X_beta = max(i_pos_beta) + seq_along(X)
     i_X_par = seq_along(X)
 
@@ -233,6 +211,259 @@ recording_to_parameters <- function(rec,
     )
   ))
 }
+
+
+init_receptors <- function(rec)
+{
+  n_receptors = length(rec$labels)
+  x = rec$x
+  y = rec$y
+  logG = rep(0, n_receptors)
+  offset = rep(0, n_receptors)
+  rec$recptors_init = data.frame(
+    x = x,
+    y = y,
+    logG = logG,
+    offset = offset
+  )
+  return(rec)
+}
+
+init_sources_position <- function(rec,
+                                  n_sources = NULL,
+                                  x_min = NULL,
+                                  x_max = NULL,
+                                  y_min = NULL,
+                                  y_max = NULL,
+                                  freq_limits = rbind(c(0, 500),
+                                                      c(500, 4000),
+                                                      c(4000, 10000)))
+{
+  if (is.null(x_min))
+    x_min = min(rec$x)
+  if (is.null(x_max))
+    x_max = max(rec$x)
+  if (is.null(y_min))
+    y_min = min(rec$y)
+  if (is.null(y_max))
+    y_max = max(rec$y)
+
+  n_receptors = length(rec$labels)
+  if (is.null(n_sources))
+    n_sources = n_receptors - 1
+
+
+  n_frames = length(rec$frames)
+  n_freq = nrow(freq_limits)
+
+  total_rows = n_frames * n_freq
+
+
+  i_frame_pos = rep(seq_len(n_frames), each = n_freq)
+  i_freq_pos = rep(seq_len(n_freq), times = n_frames)
+
+  x = matrix(
+    x_min + (x_max - x_min) * runif(n_sources * total_rows),
+    nrow = total_rows,
+    ncol = n_sources
+  )
+  y = matrix(
+    y_min + (y_max - y_min) * runif(n_sources * total_rows),
+    nrow = total_rows,
+    ncol = n_sources
+  )
+
+
+
+  rec$sources_pos_init = list(
+    i_frame_pos = i_frame_pos,
+    i_freq_pos = i_freq_pos,
+    x = x,
+    y = y
+  )
+
+
+  return(rec)
+}
+
+
+init_sources_signal <- function(rec,
+                                n_sources = NULL,
+                                freq_limits = rbind(c(0, 500),
+                                                    c(500, 4000),
+                                                    c(4000, 10000)))
+{
+  n_receptors = length(rec$labels)
+  if (is.null(n_sources))
+    n_sources = n_receptors - 1
+
+
+  n_frames = length(rec$frames)
+  n_freq = nrow(freq_limits)
+
+  nfreq = matrix(numeric(n_frames * n_freq), nrow = n_freq, ncol = n_frames)
+
+  frame_freq = lapply(
+    rec$frames,
+    FUN = function(frame)
+      freq_limits_to_their_indexes(
+        f_rec = rec,
+        frame = frame,
+        freq_limits = freq_limits
+      )
+  )
+
+  for (i_frame in seq_len(n_frames))
+    for (i_freq in seq_len(n_freq))
+      nfreq[i_freq, i_frame] = length(frame_freq[[i_frame]][[i_freq]]$index)
+
+  n_freq_total = sum(nfreq)
+  cum_n_freq = matrix(cumsum(nfreq), nrow = n_freq, ncol = n_frames)
+
+  i_frame = numeric(n_freq_total)
+  i_freq = numeric(n_freq_total)
+  i_source = numeric(n_freq_total)
+  freq =  numeric(n_freq_total)
+  X = matrix(complex(n_freq_total*n_sources), nrow = n_freq_total,ncol = n_sources)
+  Y = matrix(complex(n_freq_total*n_receptors), nrow = n_freq_total,ncol = n_receptors)
+
+  for (i in seq_len(n_freq))
+    for (j in seq_len(n_frames))
+    {
+      ii = c()
+      if (i == 1)
+      {
+        if (j == 1)
+          ii = 1:cum_n_freq[i, j]
+        else
+          ii = (cum_n_freq[n_freq, j - 1] + 1):cum_n_freq[i, j]
+      }
+      else
+        ii = (cum_n_freq[i - 1, j] + 1):cum_n_freq[i, j]
+      i_frame[ii] = j
+      i_freq[ii] = i
+      i_source[ii] = i + (j - 1) * n_freq
+      freq[ii] = frame_freq[[j]][[i]]$freq
+      index = frame_freq[[j]][[i]]$index
+      for (i_rec in seq_len(n_receptors))
+         Y[ii,i_rec] = rec$frames[[1]]$fft[[i_rec]][index]
+    }
+
+  rec$sources_signal_init = list(
+    i_frame = i_frame,
+    i_freq = i_freq,
+    i_source = i_source,
+    freq = freq,
+    X = X
+  )
+
+
+  return(rec)
+}
+
+
+
+init_receptor_signal <- function(rec,
+                                freq_limits = rbind(c(0, 500),
+                                                    c(500, 4000),
+                                                    c(4000, 10000)))
+{
+  n_receptors = length(rec$labels)
+  rec = calculate_ffts(rec)
+
+
+  n_frames = length(rec$frames)
+  n_freq = nrow(freq_limits)
+
+  nfreq = matrix(numeric(n_frames * n_freq), nrow = n_freq, ncol = n_frames)
+
+  frame_freq = lapply(
+    rec$frames,
+    FUN = function(frame)
+      freq_limits_to_their_indexes(
+        f_rec = rec,
+        frame = frame,
+        freq_limits = freq_limits
+      )
+  )
+
+  for (i_frame in seq_len(n_frames))
+    for (i_freq in seq_len(n_freq))
+      nfreq[i_freq, i_frame] = length(frame_freq[[i_frame]][[i_freq]]$index)
+
+  n_freq_total = sum(nfreq)
+  cum_n_freq = matrix(cumsum(nfreq), nrow = n_freq, ncol = n_frames)
+
+  i_frame = numeric(n_freq_total)
+  i_freq = numeric(n_freq_total)
+  i_source = numeric(n_freq_total)
+  freq =  numeric(n_freq_total)
+  Y = matrix(complex(n_freq_total*n_receptors), nrow = n_freq_total,ncol = n_receptors)
+
+  for (i in seq_len(n_freq))
+    for (j in seq_len(n_frames))
+    {
+      ii = c()
+      if (i == 1)
+      {
+        if (j == 1)
+          ii = 1:cum_n_freq[i, j]
+        else
+          ii = (cum_n_freq[n_freq, j - 1] + 1):cum_n_freq[i, j]
+      }
+      else
+        ii = (cum_n_freq[i - 1, j] + 1):cum_n_freq[i, j]
+      i_frame[ii] = j
+      i_freq[ii] = i
+      i_source[ii] = i + (j - 1) * n_freq
+      freq[ii] = frame_freq[[j]][[i]]$freq
+      index = frame_freq[[j]][[i]]$index
+      for (i_rec in seq_len(n_receptors))
+        Y[ii,i_rec] = rec$frames[[1]]$fft[[i_rec]][index]
+    }
+
+  rec$recptors_signal_init = list(
+    i_frame = i_frame,
+    i_freq = i_freq,
+    i_source = i_source,
+    freq = freq,
+    Y = Y
+  )
+
+
+  return(rec)
+}
+
+
+
+
+
+
+recording_to_seaprate_parameters <- function(rec,
+                                             n_sources = NULL,
+                                             i_offset = 0,
+                                             x_min = NULL,
+                                             x_max = NULL,
+                                             y_min = NULL,
+                                             y_max = NULL,
+                                             freq_limits = rbind(c(0, 500),
+                                                                 c(500, 4000),
+                                                                 c(4000, 10000)))
+{
+  # idea--> to extract the beta (parameter to be optimized),
+  #  the ydata (the observed data)
+  # and the xdata (the coordinates for each ydata)
+  # and how to recover from the beta the parameter for each individual ydata
+
+
+
+
+
+}
+
+
+
+
 
 parameters_to_beta <- function(parameters)
 {
@@ -358,7 +589,7 @@ global_optimization <- function(f_rec)
 
     lags = distances / velocity_of_sound
 
-    A = dist_recip[i_rec,] * exp(-i * lags[i_rec,] * w)
+    A = dist_recip[i_rec, ] * exp(-i * lags[i_rec, ] * w)
     return(A)
   }
 
