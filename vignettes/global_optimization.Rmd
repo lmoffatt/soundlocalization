@@ -66,7 +66,8 @@ rec <- recordings(
   files = files,
   labels = labels,
   geo_locations = geo_locations,
-  time_of_recording = time_of_recording
+  time_of_recording = time_of_recording, 
+  velocity_of_sound = 334
 )
 
 ```
@@ -78,16 +79,28 @@ then we need to align the recordings and define frames
 ```{r}
 a_rec <- align_recordings(rec)
 a2_rec <- align_recordings(a_rec)
+```
 
+
+```{r}
 f_rec <- frame_recordings(a2_rec)
 
 ```
 
 
 ```{r}
+init_parameters(f_rec) -> f2_rec
+parameters_to_beta(f2_rec) -> bb
+beta_to_parameters(bb,f2_rec) ->ff
+all.equal(f2_rec,ff)
+```
 
-g_rec <- global_optimization(f_rec)
 
+```{r}
+xdata= parameters_to_xdata(f2_rec)
+get_predicted_signal(f2_rec,xdata)->Yfit
+sqr_sum_signal(f2_rec,bb,xdata)->ss
+ss
 ```
 
 

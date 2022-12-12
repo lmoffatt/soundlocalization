@@ -59,6 +59,7 @@ recordings <-
            labels,
            geo_locations,
            time_of_recording,
+           velocity_of_sound =334,
            origin = NULL,
            x_axis = NULL)
   {
@@ -100,6 +101,7 @@ recordings <-
       pos_err = vapply(1:nrow(geo_locations),
                        function(i)
                          geo_locations[i, "error"], 1),
+      velocity_of_sound = velocity_of_sound,
       origin = origin,
       x_axis = x_axis,
       time = time_of_recording,
@@ -135,6 +137,7 @@ extract_raw_recording <- function(somewhat_processed_recording)
     "lon",
     "x",
     "y",
+    "velocity_of_sound",
     "pos_err",
     "origin",
     "x_axis",
