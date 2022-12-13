@@ -516,4 +516,5 @@ sqr_sum_signal <- function(f_rec, beta, xdata)
 global_optimization <- function(f_rec)
 {
 
+
 }

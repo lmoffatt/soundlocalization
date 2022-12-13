@@ -11,6 +11,7 @@
 
 
 
+
 sum_by_index <- function(values, indexes, icol)
 {
   stopifnot(nrow(values) == nrow(indexes))
@@ -24,7 +25,7 @@ sum_by_index <- function(values, indexes, icol)
   else
     out = matrix(0, nrow = num_indexes, ncol = ncols)
   for (i in seq_len(nrow(values)))
-    out[indexes[i, icol], ] = out[indexes[i, icol], ] + values[i, ]
+    out[indexes[i, icol],] = out[indexes[i, icol],] + values[i,]
   return(out)
 }
 
@@ -65,7 +66,7 @@ d_A__d_distance <- function(f_rec, xdata)
   v = f_rec$velocity_of_sound
   w = 2 * pi * xdata[, 5]
   dist = lapply(f_rec$distances, function(d)
-    d[xdata[, 4],])
+    d[xdata[, 4], ])
   A = get_Amplitudes(f_rec, xdata)
   n_receptor = length(f_rec$labels)
   A_dist = lapply(1:n_receptor, function(i)
@@ -269,5 +270,51 @@ d_f__d_logGdiff <- function(f_rec, xdata)
 
 d_f__d_beta <- function(f_rec, beta, xdata)
 {
+  f_rec = beta_to_parameters(beta, f_rec)
+
+
+  n_receptors = length(f_rec$labels)
+  n_frames = length(f_rec$frames)
+  count_receptors_par = (n_receptors - 1) * 4 - 1
+  count_frames_gain_par = (nrow(f_rec$frames_gain_init$logG_diff) - 1) * n_receptors
+  count_sources_pos_par = length(f_rec$sources_pos_init$x) + length(f_rec$sources_pos_init$y)
+  count_sources_signal_par = length(f_rec$sources_signal_init$X)
+
+  counts = c(
+    receptors = count_receptors_par ,
+    frames_gain = count_frames_gain_par,
+    sources_pos = count_sources_pos_par,
+    sources_signal = count_sources_signal_par
+  )
+
+  total = sum(counts)
+  cumtotal = cumsum(counts)
+
+  f_beta = complex(total)
+
+  f_rposx = d_f__d_receptor_pos_x(f_rec, xdata)
+  f_rposy = d_f__d_receptor_pos_y(f_rec, xdata)
+  f_logG0 = d_f__d_logG0(f_rec, xdata)
+  f_offset = d_f__d_offset(f_rec, xdata)
+
+  f_beta[1:cumtotal['receptors']] =
+    c(f_rposx[3:n_receptors],
+      f_rposy[2:n_receptors],
+      f_logG0[2:n_receptors],
+      f_offset[2:n_receptors])
+
+  f_logGdiff = d_f__d_logGdiff(f_rec, xdata)
+  f_beta[(cumtotal[1] + 1):cumtotal[2]] = f_logGdiff[2:n_frames,]
+
+  f_spx = d_f__d_source_pos_x(f_rec, xdata)
+  f_spy = d_f__d_source_pos_y(f_rec, xdata)
+  f_beta[(cumtotal[2] + 1):cumtotal[3]] = c(f_spx[seq_along(f_spx)],f_spy[seq_along(f_spy)])
+
+  f_X = d_f__d_X(f_rec, xdata)
+  f_beta[(cumtotal[3] + 1):cumtotal[4]] = f_X[seq_along(f_X)]
+
+  return(f_beta)
 
 }
+
+
