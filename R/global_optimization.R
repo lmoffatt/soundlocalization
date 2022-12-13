@@ -1,18 +1,5 @@
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 freq_limits_to_their_indexes <- function(f_rec, frame, freq_limits)
 {
   nsamples = frame$nsamples[1]
@@ -29,8 +16,6 @@ freq_limits_to_their_indexes <- function(f_rec, frame, freq_limits)
     ))
   })
 }
-
-
 
 
 
@@ -81,7 +66,7 @@ init_sources_position <- function(rec,
                                   freq_limits = rbind(c(0, 500),
                                                       c(500, 4000),
                                                       c(4000, 10000)))
-{
+  {
   if (is.null(x_min))
     x_min = min(rec$x)
   if (is.null(x_max))
@@ -353,7 +338,7 @@ parameters_to_beta <- function(f_rec)
       f_rec$receptors_step$offset[2:n_receptors]
     )
 
-  beta[(cumtotal[1] + 1):cumtotal[2]] = f_rec$frames_gain_step$logG_diff[2:n_frames,]
+  beta[(cumtotal[1] + 1):cumtotal[2]] = f_rec$frames_gain_step$logG_diff[2:n_frames, ]
 
   beta[(cumtotal[2] + 1):cumtotal[3]] = c(f_rec$sources_pos_step$x,
                                           f_rec$sources_pos_step$y)
@@ -425,7 +410,7 @@ beta_to_parameters <- function(beta, f_rec)
 
 
   Re(beta[(cumtotal[4] + 1):cumtotal[5]]) ->
-    f_rec$frames_gain_step$logG_diff[2:n_frames,]
+    f_rec$frames_gain_step$logG_diff[2:n_frames, ]
 
   # actualize logG for frames
 
@@ -443,9 +428,6 @@ beta_to_parameters <- function(beta, f_rec)
   # actualize distances
 
   f_rec = get_source_receptor_distance(f_rec)
-
-
-
   return(f_rec)
 }
 
@@ -474,32 +456,32 @@ parameters_to_ydata <- function(f_rec)
 get_Amplitudes <- function(f_rec, xdata)
 {
   n_receptors = length(f_rec$labels)
-  Amplitudes = lapply(seq_len(n_receptors),
-                      function(i)
-                      {
-                        dist = f_rec$distances[[i]]
-
-                        d = dist[xdata[, 4], ]
-                        w = 2 * pi * xdata[, 5]
-                        logG = f_rec$receptors_step$logG[i] +
-                          f_rec$frames_gain_step$logG[xdata[, 2], i]
-                        offset = f_rec$receptors_step$offset[i]
-                        A = exp(logG - 1i * w * (d / f_rec$velocity_of_sound +
-                                                   offset)) / d
-                        return(A)
-                      })
+  Amplitudes =
+    lapply(seq_len(n_receptors),
+           function(i)
+           {
+             dist = f_rec$distances[[i]]
+             d = dist[xdata[, 4],]
+             w = 2 * pi * xdata[, 5]
+             logG = f_rec$receptors_step$logG[i] +
+               f_rec$frames_gain_step$logG[xdata[, 2], i]
+             offset = f_rec$receptors_step$offset[i]
+             A = exp(logG - 1i * w *
+                       (d / f_rec$velocity_of_sound + offset)) / d
+             return(A)
+           })
 
   return(Amplitudes)
 }
 
 get_source_signal <- function(f_rec, xdata)
 {
-  return(f_rec$sources_signal_step$X[xdata[, 1], ])
+  return(f_rec$sources_signal_step$X[xdata[, 1],])
 }
 
 get_receptor_signal <- function(f_rec, xdata)
 {
-  return(f_rec$receptors_signal_init$Y[xdata[, 1], ])
+  return(f_rec$receptors_signal_init$Y[xdata[, 1],])
 }
 
 
