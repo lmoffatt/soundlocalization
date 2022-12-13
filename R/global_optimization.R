@@ -10,6 +10,9 @@
 
 
 
+
+
+
 freq_limits_to_their_indexes <- function(f_rec, frame, freq_limits)
 {
   nsamples = frame$nsamples[1]
@@ -350,7 +353,7 @@ parameters_to_beta <- function(f_rec)
       f_rec$receptors_step$offset[2:n_receptors]
     )
 
-  beta[(cumtotal[1] + 1):cumtotal[2]] = f_rec$frames_gain_step$logG_diff[2:n_frames, ]
+  beta[(cumtotal[1] + 1):cumtotal[2]] = f_rec$frames_gain_step$logG_diff[2:n_frames,]
 
   beta[(cumtotal[2] + 1):cumtotal[3]] = c(f_rec$sources_pos_step$x,
                                           f_rec$sources_pos_step$y)
@@ -422,7 +425,7 @@ beta_to_parameters <- function(beta, f_rec)
 
 
   Re(beta[(cumtotal[4] + 1):cumtotal[5]]) ->
-    f_rec$frames_gain_step$logG_diff[2:n_frames, ]
+    f_rec$frames_gain_step$logG_diff[2:n_frames,]
 
   # actualize logG for frames
 
@@ -476,7 +479,7 @@ get_Amplitudes <- function(f_rec, xdata)
                       {
                         dist = f_rec$distances[[i]]
 
-                        d = dist[xdata[, 4],]
+                        d = dist[xdata[, 4], ]
                         w = 2 * pi * xdata[, 5]
                         logG = f_rec$receptors_step$logG[i] +
                           f_rec$frames_gain_step$logG[xdata[, 2], i]
@@ -491,12 +494,12 @@ get_Amplitudes <- function(f_rec, xdata)
 
 get_source_signal <- function(f_rec, xdata)
 {
-  return(f_rec$sources_signal_step$X[xdata[, 1],])
+  return(f_rec$sources_signal_step$X[xdata[, 1], ])
 }
 
 get_receptor_signal <- function(f_rec, xdata)
 {
-  return(f_rec$receptors_signal_init$Y[xdata[, 1],])
+  return(f_rec$receptors_signal_init$Y[xdata[, 1], ])
 }
 
 
@@ -526,36 +529,9 @@ sqr_sum_signal <- function(f_rec, beta, xdata)
 
 
 
+
+
 global_optimization <- function(f_rec)
 {
-  predict_single_fft <- function(beta, xdata, paramters)
-  {
-    parameters = beta_to_parameters(beta, parameters)
-    A = get_source_Amplitude(parameters, xdata)
-    X = get_source_fft(beta, xdata)
-    return(A %*% X)
-
-  }
-
-
-
-
-  predict_fft <- function(beta, xdata)
-  {
-    beta_to_list(beta, parameters = parameters)
-
-  }
-
-
-  parameters_to_beta <- function(parameters) {
-
-  }
-  an_receptors = length(f_rec$labels)
-
-  f_rec <- calculate_ffts(f_rec)
-
-
-  parameters <- recording_to_receptors_frame(f_rec, n_sources = 2)
-
 
 }
