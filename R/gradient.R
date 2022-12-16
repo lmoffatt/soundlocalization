@@ -12,10 +12,9 @@
 
 
 
-sum_by_index <- function(values, indexes, icol)
+sum_by_index <- function(values, indexes, icol, num_indexes)
 {
   stopifnot(nrow(values) == nrow(indexes))
-  num_indexes = max(indexes[, icol])
   ncols = ncol(values)
   out = c()
   if (is.complex(values))
@@ -106,22 +105,32 @@ d_f__d_Y <- function(f_rec, xdata)
   return(2 * (Yfit - Y))
 }
 
+d_Y__d_X <- function(f_rec, xdata)
+{
+  A = get_Amplitudes(f_rec, xdata)
+  return(A)
+}
 
 
 
 d_f__d_X <- function(f_rec, xdata)
 {
-  A = get_Amplitudes(f_rec, xdata)
-  X = get_source_signal(f_rec, xdata)
 
-  Y = get_receptor_signal(f_rec, xdata)
-  n = nrow(X)
-  Yfit = (vapply(A, function(a)
-    rowSums(a * X), complex(n)))
-  Y_dif = Y - Yfit
+  Y_X = d_Y__d_X(f_rec,xdata)
+  f_Y = d_f__d_Y(f_rec,xdata)
 
-  f_X =  (vapply(A, function(a)
-    rowSums(a * Y_dif), complex(n)))
+  n_rows = nrow(get_source_signal(f_rec))
+  n_cols = ncol(get_source_signal(f_rec))
+
+  f_X = matrix(0, nrow = n_rows, ncol = n_cols)
+
+  n_receptors = length(f_rec$labels)
+
+  f_Xmeasured =  Reduce(function(pre,i)
+              pre + Y_X[[i]] * f_Y[,i],
+    seq_len(n_receptors), 0i)
+
+  f_X[xdata[,1],] = f_Xmeasured
 
   return(f_X)
 }
@@ -134,13 +143,14 @@ d_f__d_distance <- function(f_rec, xdata)
   A_d = d_A__d_distance(f_rec, xdata)
 
   n_receptors = length(f_rec$labels)
-  f_d = lapply(seq_along(n_receptors),
+  n_sources = get_number_of_sources(f_rec)
+  f_d = lapply(seq_len(n_receptors),
                function(i)
                {
                  Y_dr = Y_A * A_d[[i]]
                  f_dr = sum_by_index(2 * Re(f_Y[, i]) * Re(Y_dr) +
                                        2 * Im(f_Y[, i]) * Im(Y_dr),
-                                     xdata, 4)
+                                     xdata, 4,n_sources)
                  return(f_dr)
                })
   return(f_d)
@@ -153,7 +163,7 @@ d_f__d_offset <- function(f_rec, xdata)
   A_off = d_A__d_offset(f_rec, xdata)
 
   n_receptors = length(f_rec$labels)
-  f_off = vapply(seq_along(n_receptors),
+  f_off = vapply(seq_len(n_receptors),
                  function(i)
                  {
                    Y_offr = Y_A * A_off[[i]]
@@ -171,15 +181,16 @@ d_f__d_logG <- function(f_rec, xdata)
   A_logG = d_A__d_logG(f_rec, xdata)
 
   n_receptors = length(f_rec$labels)
-  f_logG = lapply(seq_along(n_receptors),
+  n_frames = length(f_rec$frames)
+  f_logG = vapply(seq_len(n_receptors),
                   function(i)
                   {
                     Y_logGr = Y_A * A_logG[[i]]
                     f_logGr = sum_by_index(2 * Re(f_Y[, i]) * Re(Y_logGr) +
                                              2 * Im(f_Y[, i]) * Im(Y_logGr),
-                                           xdata, 2)
-                    return(f_logGr)
-                  })
+                                           xdata, 2,n_frames)
+                    return(rowSums(f_logGr) )
+                  }, numeric(n_frames))
   return(f_logG)
 }
 
@@ -229,7 +240,7 @@ d_f__d_receptor_pos_x <- function(f_rec, xdata)
     vapply(seq_len(n_receptors),
            function(i)
              - sum(f_dist[[i]] * dist_spx[[i]]),
-           numeric(0))
+           numeric(1))
   return(f_rposx)
 }
 
@@ -244,7 +255,7 @@ d_f__d_receptor_pos_y <- function(f_rec, xdata)
     vapply(seq_len(n_receptors),
            function(i)
              - sum(f_dist[[i]] * dist_spy[[i]]),
-           numeric(0))
+           numeric(1))
   return(f_rposy)
 }
 
@@ -262,13 +273,13 @@ d_f__d_logGdiff <- function(f_rec, xdata)
   f_logG = d_f__d_logG(f_rec, xdata)
   f_logG0 = d_f__d_logG0(f_rec, xdata)
   n_receptors = length(f_rec$labels)
-  n_frames = nrow(f_logG[[1]])
+  n_frames = nrow(f_logG)
   f_logGdiff = vapply(seq_len(n_receptors), function(i)
-    colSums(f_logG0[i] - cumsum(f_logG[[i]])), numeric(n_frames))
+    f_logG0[i] - cumsum(f_logG[,i]), numeric(n_frames))
   return(f_logGdiff)
 }
 
-d_f__d_beta <- function(f_rec, beta, xdata)
+d_f__d_beta <- function(f_rec, beta, xdata, ydata)
 {
   f_rec = beta_to_parameters(beta, f_rec)
 
@@ -317,4 +328,94 @@ d_f__d_beta <- function(f_rec, beta, xdata)
 
 }
 
+
+d_f__d_beta_fast <- function(f_rec, beta, xdata, ydata)
+{
+  f_rec = beta_to_parameters(beta, f_rec)
+
+
+  n_receptors = length(f_rec$labels)
+  n_frames = length(f_rec$frames)
+  count_receptors_par = (n_receptors - 1) * 4 - 1
+  count_frames_gain_par = (nrow(f_rec$frames_gain_init$logG_diff) - 1) * n_receptors
+  count_sources_pos_par = length(f_rec$sources_pos_init$x) + length(f_rec$sources_pos_init$y)
+  count_sources_signal_par = length(f_rec$sources_signal_init$X)
+
+  counts = c(
+    receptors = count_receptors_par ,
+    frames_gain = count_frames_gain_par,
+    sources_pos = count_sources_pos_par,
+    sources_signal = count_sources_signal_par
+  )
+
+  total = sum(counts)
+  cumtotal = cumsum(counts)
+
+  f_beta = complex(total)
+  n_receptors = length(f_rec$labels)
+  n_sources = get_number_of_sources(f_rec)
+
+  #f_rposx = d_f__d_receptor_pos_x(f_rec, xdata)
+
+  # f_dist = d_f__d_distance(f_rec, xdata)
+
+
+  f_Y = d_f__d_Y(f_rec, xdata)
+  Y_A = d_Y__d_Amplitude(f_rec, xdata)
+  A_d = d_A__d_distance(f_rec, xdata)
+
+  f_dist = lapply(seq_len(n_receptors),
+               function(i)
+               {
+                 Y_dr = Y_A * A_d[[i]]
+                 f_dr = sum_by_index(2 * Re(f_Y[, i]) * Re(Y_dr) +
+                                       2 * Im(f_Y[, i]) * Im(Y_dr),
+                                     xdata, 4,n_sources)
+                 return(f_dr)
+               })
+
+
+
+  dist_spx = d_dist__d_source_pos_x(f_rec = f_rec)
+  n_receptors = length(f_rec$labels)
+
+
+  f_rposx =
+    vapply(seq_len(n_receptors),
+           function(i)
+             -sum(f_dist[[i]] * dist_spx[[i]]),
+           numeric(1))
+
+
+  #f_rposy = d_f__d_receptor_pos_y(f_rec, xdata)
+  dist_spy = d_dist__d_source_pos_y(f_rec = f_rec)
+  f_rposy =
+    vapply(seq_len(n_receptors),
+           function(i)
+             - sum(f_dist[[i]] * dist_spy[[i]]),
+           numeric(1))
+
+
+  f_logG0 = d_f__d_logG0(f_rec, xdata)
+  f_offset = d_f__d_offset(f_rec, xdata)
+
+  f_beta[1:cumtotal['receptors']] =
+    c(f_rposx[3:n_receptors],
+      f_rposy[2:n_receptors],
+      f_logG0[2:n_receptors],
+      f_offset[2:n_receptors])
+
+  f_logGdiff = d_f__d_logGdiff(f_rec, xdata)
+  f_beta[(cumtotal[1] + 1):cumtotal[2]] = f_logGdiff[2:n_frames,]
+
+  f_spx = d_f__d_source_pos_x(f_rec, xdata)
+  f_spy = d_f__d_source_pos_y(f_rec, xdata)
+  f_beta[(cumtotal[2] + 1):cumtotal[3]] = c(f_spx[seq_along(f_spx)],f_spy[seq_along(f_spy)])
+
+  f_X = d_f__d_X(f_rec, xdata)
+  f_beta[(cumtotal[3] + 1):cumtotal[4]] = f_X[seq_along(f_X)]
+
+  return(f_beta)
+
+}
 

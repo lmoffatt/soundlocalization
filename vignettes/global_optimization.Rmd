@@ -103,4 +103,7 @@ sqr_sum_signal(f2_rec,bb,xdata)->ss
 ss
 ```
 
+```{r}
+opt= global_optimization(f_rec)
+```
 

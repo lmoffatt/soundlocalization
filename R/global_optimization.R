@@ -1,5 +1,7 @@
 
 
+
+
 freq_limits_to_their_indexes <- function(f_rec, frame, freq_limits)
 {
   nsamples = frame$nsamples[1]
@@ -66,7 +68,7 @@ init_sources_position <- function(rec,
                                   freq_limits = rbind(c(0, 500),
                                                       c(500, 4000),
                                                       c(4000, 10000)))
-  {
+{
   if (is.null(x_min))
     x_min = min(rec$x)
   if (is.null(x_max))
@@ -428,6 +430,9 @@ beta_to_parameters <- function(beta, f_rec)
   # actualize distances
 
   f_rec = get_source_receptor_distance(f_rec)
+
+  # remove amplitudes
+  f_rec$Amplitudes = NULL
   return(f_rec)
 }
 
@@ -455,28 +460,38 @@ parameters_to_ydata <- function(f_rec)
 
 get_Amplitudes <- function(f_rec, xdata)
 {
-  n_receptors = length(f_rec$labels)
-  Amplitudes =
-    lapply(seq_len(n_receptors),
-           function(i)
-           {
-             dist = f_rec$distances[[i]]
-             d = dist[xdata[, 4],]
-             w = 2 * pi * xdata[, 5]
-             logG = f_rec$receptors_step$logG[i] +
-               f_rec$frames_gain_step$logG[xdata[, 2], i]
-             offset = f_rec$receptors_step$offset[i]
-             A = exp(logG - 1i * w *
-                       (d / f_rec$velocity_of_sound + offset)) / d
-             return(A)
-           })
-
-  return(Amplitudes)
+  if (is.null(f_rec$Amplitudes))
+  {
+    n_receptors = length(f_rec$labels)
+    f_rec$Amplitudes =
+      lapply(seq_len(n_receptors),
+             function(i)
+             {
+               dist = f_rec$distances[[i]]
+               d = dist[xdata[, 4],]
+               w = 2 * pi * xdata[, 5]
+               logG = f_rec$receptors_step$logG[i] +
+                 f_rec$frames_gain_step$logG[xdata[, 2], i]
+               offset = f_rec$receptors_step$offset[i]
+               A = exp(logG - 1i * w *
+                         (d / f_rec$velocity_of_sound + offset)) / d
+               return(A)
+             })
+  }
+  return(f_rec$Amplitudes)
 }
 
-get_source_signal <- function(f_rec, xdata)
+get_number_of_sources <- function(f_rec)
 {
-  return(f_rec$sources_signal_step$X[xdata[, 1],])
+  return (nrow(f_rec$sources_pos_step$x))
+}
+
+get_source_signal <- function(f_rec, xdata = NULL)
+{
+  if (is.null(xdata))
+    return(f_rec$sources_signal_step$X)
+  else
+    return(f_rec$sources_signal_step$X[xdata[, 1],])
 }
 
 get_receptor_signal <- function(f_rec, xdata)
@@ -505,7 +520,7 @@ sqr_sum_signal <- function(f_rec, beta, xdata)
   Yfit = get_predicted_signal(f_rec, xdata)
   Y = get_receptor_signal(f_rec, xdata)
   error = Yfit - Y
-  return(sum(Mod(error)))
+  return(sum(Re(Conj(error) * error)))
 
 }
 
@@ -513,8 +528,50 @@ sqr_sum_signal <- function(f_rec, beta, xdata)
 
 
 
-global_optimization <- function(f_rec)
+global_optimization <- function(f_rec,
+                                n_sources = NULL,
+                                x_min = NULL,
+                                x_max = NULL,
+                                y_min = NULL,
+                                y_max = NULL,
+                                freq_limits = rbind(c(0, 500),
+                                                    c(500, 4000),
+                                                    c(4000, 10000)),
+                                number_of_chunks = 1000,
+                                maxiter = 100)
 {
+  sqr_sum  <-
+    function(beta, xdata) {
+      return(sqr_sum_signal(f_rec, beta, xdata))
+    }
 
+  gradient <-
+    function(beta, xdata, ydata) {
+      return(d_f__d_beta(
+        f_rec = f_rec,
+        beta = beta,
+        xdata = xdata,
+        ydata = ydata
+      ))
+    }
+
+  f_rec = init_parameters(f_rec, n_sources, x_min, x_max, y_min, y_max, freq_limits)
+
+  beta_init = parameters_to_beta(f_rec)
+  xdata = parameters_to_xdata(f_rec)
+  ydata = parameters_to_ydata(f_rec)
+
+  opt = StochasticGradientDescent::nlsqrsgd(
+    f = sqr_sum,
+    x0 = beta_init,
+    xdata = xdata,
+    ydata = ydata,
+    number_of_chunks = number_of_chunks,
+    is_complex = T,
+    maxiter = maxiter,
+    gradient =  gradient
+  )
+
+  return(opt)
 
 }
