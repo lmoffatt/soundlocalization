@@ -155,3 +155,37 @@ extract_raw_recording <- function(somewhat_processed_recording)
 
   return (somewhat_processed_recording[field_list])
 }
+
+
+
+simulate_recording <- function(receptor_positions_x,
+                               receptor_positions_y,
+                               receptor_gain_change_time,
+                               receptors_start_logGain,
+                               receptor_new_logGain,
+                               receptor_offsets,
+                              source_files,
+                              source_labels,
+                              source_start_time,
+                              source_end_time,
+                              source_positions_x,
+                              source_positions_y,
+                              velocity_of_sound =334,
+                               origin = NULL,
+                              x_axis = NULL)
+
+{
+  sim=list()
+  sim$receptors_sim = list(
+    x = receptor_positions_x,
+    y = receptor_positions_y,
+    logG = receptors_start_logGain,
+    offset = receptor_offsets
+  )
+
+
+
+
+
+}
+

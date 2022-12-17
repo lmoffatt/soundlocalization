@@ -97,12 +97,12 @@ d_Y__d_Amplitude <- function(f_rec, xdata)
 
 
 
-d_f__d_Y <- function(f_rec, xdata)
+delta_Yf <- function(f_rec, xdata)
 {
   Y = get_receptor_signal(f_rec, xdata)
   Yfit = get_predicted_signal(f_rec, xdata)
 
-  return(2 * (Yfit - Y))
+  return(Yfit - Y)
 }
 
 d_Y__d_X <- function(f_rec, xdata)
@@ -117,17 +117,17 @@ d_f__d_X <- function(f_rec, xdata)
 {
 
   Y_X = d_Y__d_X(f_rec,xdata)
-  f_Y = d_f__d_Y(f_rec,xdata)
+  del_Y = delta_Yf(f_rec,xdata)
 
   n_rows = nrow(get_source_signal(f_rec))
   n_cols = ncol(get_source_signal(f_rec))
 
-  f_X = matrix(0, nrow = n_rows, ncol = n_cols)
+  f_X = matrix(0i, nrow = n_rows, ncol = n_cols)
 
   n_receptors = length(f_rec$labels)
 
   f_Xmeasured =  Reduce(function(pre,i)
-              pre + Y_X[[i]] * f_Y[,i],
+              pre + Conj(Y_X[[i]] ) * del_Y[,i] + Conj(del_Y[,i])*Y_X[[i]],
     seq_len(n_receptors), 0i)
 
   f_X[xdata[,1],] = f_Xmeasured
@@ -138,7 +138,7 @@ d_f__d_X <- function(f_rec, xdata)
 
 d_f__d_distance <- function(f_rec, xdata)
 {
-  f_Y = d_f__d_Y(f_rec, xdata)
+  del_Y = delta_Yf(f_rec,xdata)
   Y_A = d_Y__d_Amplitude(f_rec, xdata)
   A_d = d_A__d_distance(f_rec, xdata)
 
@@ -148,8 +148,8 @@ d_f__d_distance <- function(f_rec, xdata)
                function(i)
                {
                  Y_dr = Y_A * A_d[[i]]
-                 f_dr = sum_by_index(2 * Re(f_Y[, i]) * Re(Y_dr) +
-                                       2 * Im(f_Y[, i]) * Im(Y_dr),
+                 f_dr = sum_by_index(Conj(del_Y[, i]) * (Y_dr) +
+                                      del_Y[, i] * Conj(Y_dr),
                                      xdata, 4,n_sources)
                  return(f_dr)
                })
@@ -158,7 +158,7 @@ d_f__d_distance <- function(f_rec, xdata)
 
 d_f__d_offset <- function(f_rec, xdata)
 {
-  f_Y = d_f__d_Y(f_rec, xdata)
+  del_Y = delta_Yf(f_rec,xdata)
   Y_A = d_Y__d_Amplitude(f_rec, xdata)
   A_off = d_A__d_offset(f_rec, xdata)
 
@@ -167,16 +167,16 @@ d_f__d_offset <- function(f_rec, xdata)
                  function(i)
                  {
                    Y_offr = Y_A * A_off[[i]]
-                   f_offr = sum(2 * Re(f_Y[, i]) * Re(Y_offr) +
-                                  2 * Im(f_Y[, i]) * Im(Y_offr))
+                   f_offr = sum(Conj(del_Y[, i]) * Y_offr +
+                                   del_Y[, i] * Conj(Y_offr))
                    return(f_offr)
-                 }, numeric(1))
+                 }, complex(1))
   return(f_off)
 }
 
 d_f__d_logG <- function(f_rec, xdata)
 {
-  f_Y = d_f__d_Y(f_rec, xdata)
+  del_Y = delta_Yf(f_rec,xdata)
   Y_A = d_Y__d_Amplitude(f_rec, xdata)
   A_logG = d_A__d_logG(f_rec, xdata)
 
@@ -186,11 +186,11 @@ d_f__d_logG <- function(f_rec, xdata)
                   function(i)
                   {
                     Y_logGr = Y_A * A_logG[[i]]
-                    f_logGr = sum_by_index(2 * Re(f_Y[, i]) * Re(Y_logGr) +
-                                             2 * Im(f_Y[, i]) * Im(Y_logGr),
+                    f_logGr = sum_by_index(Conj(del_Y[, i]) * Y_logGr +
+                                            del_Y[, i] * Conj(Y_logGr),
                                            xdata, 2,n_frames)
                     return(rowSums(f_logGr) )
-                  }, numeric(n_frames))
+                  }, complex(n_frames))
   return(f_logG)
 }
 
@@ -240,7 +240,7 @@ d_f__d_receptor_pos_x <- function(f_rec, xdata)
     vapply(seq_len(n_receptors),
            function(i)
              - sum(f_dist[[i]] * dist_spx[[i]]),
-           numeric(1))
+           complex(1))
   return(f_rposx)
 }
 
@@ -255,7 +255,7 @@ d_f__d_receptor_pos_y <- function(f_rec, xdata)
     vapply(seq_len(n_receptors),
            function(i)
              - sum(f_dist[[i]] * dist_spy[[i]]),
-           numeric(1))
+           complex(1))
   return(f_rposy)
 }
 
@@ -263,7 +263,7 @@ d_f__d_logG0 <- function(f_rec, xdata)
 {
   f_logG = d_f__d_logG(f_rec, xdata)
   f_logG0 = vapply(f_logG, function(f_logGi)
-    sum(f_logGi), numeric(1))
+    sum(f_logGi), complex(1))
   return(f_logG0)
 
 }
@@ -275,7 +275,7 @@ d_f__d_logGdiff <- function(f_rec, xdata)
   n_receptors = length(f_rec$labels)
   n_frames = nrow(f_logG)
   f_logGdiff = vapply(seq_len(n_receptors), function(i)
-    f_logG0[i] - cumsum(f_logG[,i]), numeric(n_frames))
+    f_logG0[i] - cumsum(f_logG[,i]), complex(n_frames))
   return(f_logGdiff)
 }
 
@@ -360,7 +360,7 @@ d_f__d_beta_fast <- function(f_rec, beta, xdata, ydata)
   # f_dist = d_f__d_distance(f_rec, xdata)
 
 
-  f_Y = d_f__d_Y(f_rec, xdata)
+  del_Y = delta_Yf(f_rec,xdata)
   Y_A = d_Y__d_Amplitude(f_rec, xdata)
   A_d = d_A__d_distance(f_rec, xdata)
 
@@ -368,8 +368,8 @@ d_f__d_beta_fast <- function(f_rec, beta, xdata, ydata)
                function(i)
                {
                  Y_dr = Y_A * A_d[[i]]
-                 f_dr = sum_by_index(2 * Re(f_Y[, i]) * Re(Y_dr) +
-                                       2 * Im(f_Y[, i]) * Im(Y_dr),
+                 f_dr = sum_by_index(Conj(del_Y[, i]) * Y_dr +
+                                      del_Y[, i] * Conj(Y_dr),
                                      xdata, 4,n_sources)
                  return(f_dr)
                })

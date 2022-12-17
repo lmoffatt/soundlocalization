@@ -524,6 +524,14 @@ sqr_sum_signal <- function(f_rec, beta, xdata)
 
 }
 
+predicted_signal <- function(f_rec, beta, xdata)
+{
+  f_rec = beta_to_parameters(beta, f_rec)
+  Yfit = get_predicted_signal(f_rec, xdata)
+  return(Yfit)
+
+}
+
 
 
 
@@ -540,9 +548,9 @@ global_optimization <- function(f_rec,
                                 number_of_chunks = 1000,
                                 maxiter = 100)
 {
-  sqr_sum  <-
+  predicted  <-
     function(beta, xdata) {
-      return(sqr_sum_signal(f_rec, beta, xdata))
+      return(predicted_signal(f_rec, beta, xdata))
     }
 
   gradient <-
@@ -561,8 +569,8 @@ global_optimization <- function(f_rec,
   xdata = parameters_to_xdata(f_rec)
   ydata = parameters_to_ydata(f_rec)
 
-  opt = StochasticGradientDescent::nlsqrsgd(
-    f = sqr_sum,
+  opt = nlsqrsgd(
+    f = predicted,
     x0 = beta_init,
     xdata = xdata,
     ydata = ydata,
@@ -571,7 +579,16 @@ global_optimization <- function(f_rec,
     maxiter = maxiter,
     gradient =  gradient
   )
-
-  return(opt)
+  opt$sqr_diff = opt$sqrsum_tot-opt$sqrsum_prev
+  opt$xdata = xdata
+  opt$ydata = ydata
+  opt$sqr_ydata = sum(Conj(ydata)*ydata)
+  opt$sqr_diff_tot =  opt$sqrsum_tot -opt$sqr_ydata
+  f_rec$opt = opt
+  f_rec = beta_to_parameters(opt$xt,f_rec)
+  return(f_rec)
 
 }
+
+
+
