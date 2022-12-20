@@ -60,6 +60,9 @@ recordings <-
            geo_locations,
            time_of_recording,
            velocity_of_sound =334,
+           position_x =NULL,
+           position_y =NULL,
+           position_error =NULL,
            origin = NULL,
            x_axis = NULL)
   {
@@ -88,6 +91,18 @@ recordings <-
                      x_axis = x_axis)
 
 
+  if (is.null(position_x))
+    position_x =  p[,1]
+  if (is.null(position_y))
+    position_y =  p[,2]
+  if (is.null(position_error))
+    position_error =   vapply(1:nrow(geo_locations),
+                              function(i)
+                                geo_locations[i, "error"], 1)
+
+
+
+
     d = list(
       labels = labels,
       lat = vapply(1:nrow(geo_locations),
@@ -96,11 +111,9 @@ recordings <-
       lon = vapply(1:nrow(geo_locations),
                    function(i)
                      geo_locations[i, "lon"], 1),
-      x= p[,1],
-      y= p[,2],
-      pos_err = vapply(1:nrow(geo_locations),
-                       function(i)
-                         geo_locations[i, "error"], 1),
+      x = position_x,
+      y = position_y,
+      pos_err = position_error,
       velocity_of_sound = velocity_of_sound,
       origin = origin,
       x_axis = x_axis,

@@ -83,10 +83,30 @@ rec_fake <- recordings(
   labels = labels,
   geo_locations = geo_locations,
   time_of_recording = time_of_recording, 
-  velocity_of_sound = 334
+  velocity_of_sound = 334, 
+  position_x = c(0,0,1,-1),
+  position_y = c(1,-1,0, 0)
 )
 
 ```
+
+
+```{r}
+a_fake <- align_recordings(rec_fake)
+```
+
+
+```{r}
+f_fake <- frame_recordings(a_fake, i_start_diff = 120*rec$fs, nsamples = 2048, window_size_in_seconds = 512/a_fake$fs)
+init_parameters(f_fake) -> f_fake
+```
+
+
+```{r}
+opt_fake = global_optimization(f_fake)
+
+```
+
 
 
 then we need to align the recordings and define frames
@@ -95,13 +115,11 @@ then we need to align the recordings and define frames
 ```{r}
 a_rec <- align_recordings(rec)
 a2_rec <- align_recordings(a_rec)
-a_fake <- align_recordings(rec_fake)
 ```
 
 
 ```{r}
 f_rec <- frame_recordings(a2_rec, i_start_diff = 120*rec$fs, nsamples = rec$fs)
-f_fake <- frame_recordings(a_fake, i_start_diff = 120*rec$fs, nsamples = rec$fs)
 ```
 
 
@@ -111,7 +129,6 @@ init_parameters(f_rec) -> f_rec
 parameters_to_beta(f_rec) -> bb
 beta_to_parameters(bb,f_rec) ->ff
 all.equal(f_rec,ff)
-init_parameters(f_fake)->f_fake
 
 ```
 
