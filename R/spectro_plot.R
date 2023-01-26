@@ -85,7 +85,7 @@ spectro_data <-
 
       rbind(p, d_receptor)
     },
-    1:length(rec$labels),
+    1:get_number_of_receptors(rec),
     data.frame())
     return(d)
 
@@ -181,7 +181,7 @@ spectro_data_frame <-
 
       rbind(p, d_receptor)
     },
-    1:length(rec$labels),
+    1:get_number_of_receptors(rec),
     data.frame())
     return(d)
 

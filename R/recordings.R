@@ -43,6 +43,10 @@ set_sources <- function(label,
 
 
 
+
+
+
+
 #' Title
 #'
 #' @param files a list with the files where the quasi-simultaneous recordings are stored
@@ -200,5 +204,12 @@ simulate_recording <- function(receptor_positions_x,
 
 
 
+}
+
+
+
+get_number_of_receptors <- function(rec)
+{
+  return(length(rec$x))
 }
 

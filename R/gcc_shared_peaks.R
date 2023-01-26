@@ -191,7 +191,7 @@ obtain_shared_peaks_per_frame <-
 
 
 
-    n_receptors = length(rec$labels)
+    n_receptors = get_number_of_receptors(rec)
 
     frame$shared_peaks =
       Reduce (
@@ -217,7 +217,7 @@ obtain_shared_peaks_per_frame <-
     frame$shared_peaks$d = dplyr::arrange(frame$shared_peaks$d, desc(sum_of_log_values))
 
 
-    n_receptors = length(rec$labels)
+    n_receptors = get_number_of_receptors(rec)
 
 
     d = frame$shared_peaks$d
@@ -339,7 +339,7 @@ shared_peaks_data_for_plot <- function(gcc,
   max_lag = gcc$lag_max / gcc$fs[1]
   min_lag = -max_lag
 
-  n_receptors = length(gcc$labels)
+  n_receptors = get_number_of_receptors(gcc)
 
   only_in_range <- function(min, max, x)
   {

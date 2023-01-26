@@ -80,7 +80,7 @@ optimize_all_time_lags_to_their_source_positions <-
 get_receptors <- function(rec)
 {
   receptors = vapply(
-    1:length(rec$labels),
+    1:get_number_of_receptors(rec),
     FUN = function(i)
       c(rec$x[i], rec$y[i]),
     numeric(2)
@@ -90,7 +90,7 @@ get_receptors <- function(rec)
 get_receptors_max <- function(rec)
 {
   receptors = vapply(
-    1:length(rec$labels),
+    1:get_number_of_receptors(rec),
     FUN = function(i)
       c(rec$x[i] + rec$pos_err[i], rec$y[i] + rec$pos_err[i]),
     numeric(2)
@@ -100,7 +100,7 @@ get_receptors_max <- function(rec)
 get_receptors_min <- function(rec)
 {
   receptors = vapply(
-    1:length(rec$labels),
+    1:get_number_of_receptors(rec),
     FUN = function(i)
       c(rec$x[i] - rec$pos_err[i], rec$y[i] - rec$pos_err[i]),
     numeric(2)
@@ -282,7 +282,7 @@ optimize_receptors_using_gcc_lags_old <-
            velocity_of_sound = 334,
            freq_filter = F)
   {
-    n_receptors = length(rec$labels)
+    n_receptors = get_number_of_receptors(rec)
 
     receptors_init = get_receptors(rec)
 
@@ -444,7 +444,7 @@ optimize_receptors_using_gcc_lags <-
            velocity_of_sound = 334,
            freq_filter = F)
   {
-    n_receptors = length(rec$labels)
+    n_receptors = get_number_of_receptors(rec)
 
     receptors_init = get_receptors(rec)
 
@@ -560,7 +560,7 @@ optimize_localizations_by_gcc_peaks <-
            beta_optimal = NULL,
            maxeval = 10000)
   {
-    n_receptors = length(rec$labels)
+    n_receptors = get_number_of_receptors(rec)
     n_frames = length(f_rec_1$frames)
 
     vector_to_receptor <- function(beta, i, offset, n_frames)

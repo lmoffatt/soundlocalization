@@ -43,7 +43,7 @@ gcc_phase_data_for_tri_plot <-
 
 
     n_2_lags = length(unique(lags_2f))
-    n_receptors = length(gcc$labels)
+    n_receptors = get_number_of_receptors(gcc)
 
     i_lags = (n_2_lags / 4):(n_2_lags * 3 / 4 - 1)
     lags = ((-lag_max_f):(lag_max_f - 1)) / gcc$fs[1] * factor

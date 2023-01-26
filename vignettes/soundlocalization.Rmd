@@ -24,46 +24,28 @@ library(lubridate)
 ```
 
 The purpose of this package is to provide tools for isolating and
-localizing the source of sounds from an array of receptors, not
-necessary arranged in a regular order.
+localizing the source of sounds using an array of receptors on a not particularly regular order.
 
-Lets do by example. Here is a list of recordings taken on a line array
-of approx 4 m between receptors.
+We define as a recording session, a list of recordings taken approximately simultaneously on an array of receptors. 
+
+For each session we need an identifying arbitrary label for the session, the approximate time of the start of the recordings and a list of recordings each with a unique identifying label, the file name of the audio archive and the approximate location of the receptor (latitude and longitude and height above the ground).  
+
+
 
 ```{r}
 files <- list(
-  system.file("extdata", "Grabacion_2_andrea.wav", package = "soundlocalization"),
-  system.file("extdata", "Grabacion_1_joaco.wav", package = "soundlocalization"),
-  system.file("extdata", "Grabacion_1_cande.wav", package = "soundlocalization"),
-  system.file("extdata", "Grabacion_3_luciano.wav", package = "soundlocalization")
+  system.file("extdata", "/campo/Grabacion 10_andrea.wav", package = "soundlocalization"),
+  system.file("extdata", "/campo/Grabacion 6_candela.wav", package = "soundlocalization"),
+  system.file("extdata", "/campo/Grabacion 3_joaquin.wav", package = "soundlocalization"),
+  system.file("extdata", "/campo/Voz 006_julieta.wav", package = "soundlocalization"),
+  system.file("extdata", "/campo/Grabacion 18_luciano.wav", package = "soundlocalization")
 )
-labels = c("Andrea", "Joaco", "Candela", "Luciano")
-geo_locations = rbind(
-  geo_coordinates(
-    lat = -34.61410605441556,
-    lon = -58.38404404725583
-  ),
-  geo_coordinates(
-    lat = -34.614103295104634,
-    lon = -58.3839950969408
-  ),
-  geo_coordinates(
-    lat = -34.6140999839314,
-    lon = -58.383942123312224
-  ),
-  
-  geo_coordinates(
-    lat = -34.61409722462029,
-    lon = -58.38389920796756
-  )
-)
-time_of_recording = ymd_hm("2022-09-03 10:52", tz = "America/Buenos_Aires")
+labels = c("Andrea", "Candela", "Joaco", "Julieta","Luciano")
+lat= c(-35.100313,-35.099890,-35.1003703,-35.099870,-35.100110)
+lon= c(-58.304676,-58.304550,-58.3041342,-58.304039,-58.304306)
+time_of_recording = ymd_hm("2022-12-25 17:35", tz = "America/Buenos_Aires")
 ```
 
-The receptors were placed in the same line (all the xs were equal) at
-distances of 5, 4 and 4 meters.
-
-We use the function recordings to organize all the recordings at once.
 
 ```{r}
 rec<-recordings(files = files,

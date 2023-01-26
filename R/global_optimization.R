@@ -3,6 +3,12 @@
 
 
 
+
+
+
+
+
+
 freq_limits_to_their_indexes <- function(f_rec, frame, freq_limits)
 {
   nsamples = frame$nsamples[1]
@@ -24,24 +30,23 @@ freq_limits_to_their_indexes <- function(f_rec, frame, freq_limits)
 
 init_receptors <- function(rec)
 {
-  n_receptors = length(rec$labels)
+  n_receptors = get_number_of_receptors(rec)
   x = rec$x
   y = rec$y
   logG = rep(0, n_receptors)
   offset = rep(0, n_receptors)
-  rec$receptors_init = list(
+  return(list(
     x = x,
     y = y,
     logG = logG,
     offset = offset
-  )
-  return(rec)
+  ))
 }
 
 init_frames_gain <- function(rec)
 {
-  n_receptors = length(rec$labels)
-  n_frames = length(rec$frames)
+  n_receptors = get_number_of_receptors(rec)
+  n_frames = get_number_of_frames(rec)
 
 
   logG_diff = matrix(0,
@@ -51,8 +56,8 @@ init_frames_gain <- function(rec)
   logG = apply(logG_diff, 2, cumsum)
 
 
-  rec$frames_gain_init = list(logG_diff = logG_diff,
-                              logG = logG)
+  return(list(logG_diff = logG_diff,
+              logG = logG))
 
   return(rec)
 }
@@ -60,15 +65,15 @@ init_frames_gain <- function(rec)
 
 
 
-init_sources_position <- function(rec,
-                                  n_sources = NULL,
-                                  x_min = NULL,
-                                  x_max = NULL,
-                                  y_min = NULL,
-                                  y_max = NULL,
-                                  freq_limits = rbind(c(0, 500),
-                                                      c(500, 4000),
-                                                      c(4000, 10000)))
+init_sources <- function(rec,
+                         n_sources = NULL,
+                         x_min = NULL,
+                         x_max = NULL,
+                         y_min = NULL,
+                         y_max = NULL,
+                         freq_limits = rbind(c(0, 500),
+                                             c(500, 4000),
+                                             c(4000, 10000)))
 {
   if (is.null(x_min))
     x_min = min(rec$x)
@@ -79,12 +84,12 @@ init_sources_position <- function(rec,
   if (is.null(y_max))
     y_max = max(rec$y)
 
-  n_receptors = length(rec$labels)
+  n_receptors = get_number_of_receptors(rec)
   if (is.null(n_sources))
     n_sources = n_receptors - 1
 
 
-  n_frames = length(rec$frames)
+  n_frames = get_number_of_frames(rec)
   n_freq = nrow(freq_limits)
 
   total_rows = n_frames * n_freq
@@ -106,30 +111,28 @@ init_sources_position <- function(rec,
 
 
 
-  rec$sources_pos_init = list(
+  return(list(
     i_frame_pos = i_frame_pos,
     i_freq_pos = i_freq_pos,
     x = x,
     y = y
-  )
+  ))
 
-
-  return(rec)
 }
 
 
-init_sources_signal <- function(rec,
-                                n_sources = NULL,
-                                freq_limits = rbind(c(0, 500),
-                                                    c(500, 4000),
-                                                    c(4000, 10000)))
+will_be_calculate_sources_signal <- function(rec,
+                                             n_sources = NULL,
+                                             freq_limits = rbind(c(0, 500),
+                                                                 c(500, 4000),
+                                                                 c(4000, 10000)))
 {
-  n_receptors = length(rec$labels)
+  n_receptors = get_number_of_receptors(rec)
   if (is.null(n_sources))
     n_sources = n_receptors - 1
 
 
-  n_frames = length(rec$frames)
+  n_frames = get_number_of_frames(rec)
   n_freq = nrow(freq_limits)
 
   nfreq = matrix(numeric(n_frames * n_freq), nrow = n_freq, ncol = n_frames)
@@ -155,9 +158,12 @@ init_sources_signal <- function(rec,
   i_freq = numeric(n_freq_total)
   i_source = numeric(n_freq_total)
   freq =  numeric(n_freq_total)
-  X = matrix(0*rnorm(n_freq_total * n_sources) + 0*rnorm(n_freq_total * n_sources)*1i,
-             nrow = n_freq_total,
-             ncol = n_sources)
+  X = matrix(
+    0 * rnorm(n_freq_total * n_sources) + 0 * rnorm(n_freq_total * n_sources) *
+      1i,
+    nrow = n_freq_total,
+    ncol = n_sources
+  )
 
   for (i in seq_len(n_freq))
     for (j in seq_len(n_frames))
@@ -192,17 +198,18 @@ init_sources_signal <- function(rec,
 
 
 
-init_receptor_signal <- function(rec,
-                                 freq_limits = rbind(c(0, 500),
-                                                     c(500, 4000),
-                                                     c(4000, 10000)))
+obtain_receptor_signal <- function(rec,
+                                   freq_limits = rbind(c(0, 500),
+                                                       c(500, 4000),
+                                                       c(4000, 10000)))
 {
-  n_receptors = length(rec$labels)
-  rec = calculate_ffts(rec)
-
-
-  n_frames = length(rec$frames)
+  n_receptors = get_number_of_receptors(rec)
+  n_frames = get_number_of_frames(rec)
   n_freq = nrow(freq_limits)
+  n_fre_frames = n_frames * n_freq
+
+
+  rec = calculate_ffts(rec)
 
   nfreq = matrix(numeric(n_frames * n_freq), nrow = n_freq, ncol = n_frames)
 
@@ -228,8 +235,8 @@ init_receptor_signal <- function(rec,
   i_source = numeric(n_freq_total)
   freq =  numeric(n_freq_total)
   Y = matrix(complex(n_freq_total * n_receptors),
-             nrow = n_freq_total,
-             ncol = n_receptors)
+             nrow = n_receptors,
+             ncol = n_freq_total)
 
   for (i in seq_len(n_freq))
     for (j in seq_len(n_frames))
@@ -250,16 +257,16 @@ init_receptor_signal <- function(rec,
       freq[ii] = frame_freq[[j]][[i]]$freq
       index = frame_freq[[j]][[i]]$index
       for (i_rec in seq_len(n_receptors))
-        Y[ii, i_rec] = rec$frames[[1]]$fft[[i_rec]][index]
+        Y[i_rec, ii ] = rec$frames[[1]]$fft[[i_rec]][index]
     }
 
-  rec$receptors_signal_init = list(
+  return(list(
     i_frame = i_frame,
     i_freq = i_freq,
     i_source = i_source,
     freq = freq,
     Y = Y
-  )
+  ))
 
 
   return(rec)
@@ -270,273 +277,251 @@ init_receptor_signal <- function(rec,
 
 
 
-init_parameters <- function(rec,
-                            n_sources = NULL,
-                            x_min = NULL,
-                            x_max = NULL,
-                            y_min = NULL,
-                            y_max = NULL,
-                            freq_limits = rbind(c(0, 500),
-                                                c(500, 4000),
-                                                c(4000, 10000)))
+init_model <- function(rec,
+                       n_sources = NULL,
+                       x_min = NULL,
+                       x_max = NULL,
+                       y_min = NULL,
+                       y_max = NULL,
+                       freq_limits = rbind(c(0, 500),
+                                           c(500, 4000),
+                                           c(4000, 10000)),
+                       include_frame_gain)
 {
-  rec = init_receptors(rec)
-  rec = init_frames_gain(rec)
-  rec = init_sources_position(
-    rec,
-    n_sources = n_sources,
-    x_min = x_min,
-    x_max = x_max,
-    y_min = y_min,
-    y_max = y_max,
-    freq_limits = freq_limits
-  )
+  if (include_frame_gain)
+    return(
+      list(
+        receptors = init_receptors(rec),
+        frames_gain = init_frames_gain(rec),
+        sources = init_sources(
+          rec,
+          n_sources = n_sources,
+          x_min = x_min,
+          x_max = x_max,
+          y_min = y_min,
+          y_max = y_max,
+          freq_limits = freq_limits
+        ),
+        receptor_signal = obtain_receptor_signal(rec = rec, freq_limits = freq_limits)
+      )
+    )
+  else
+    return(
+      list(
+        receptors = init_receptors(rec),
+        sources = init_sources(
+          rec,
+          n_sources = n_sources,
+          x_min = x_min,
+          x_max = x_max,
+          y_min = y_min,
+          y_max = y_max,
+          freq_limits = freq_limits
+        ),
+        receptor_signal = obtain_receptor_signal(rec = rec, freq_limits = freq_limits)
 
-  rec = init_sources_signal(rec, n_sources = n_sources, freq_limits = freq_limits)
+      )
+    )
 
-  rec = init_receptor_signal(rec, freq_limits = freq_limits)
+}
 
-  rec$receptors_init -> rec$receptors_step
-  rec$frames_gain_init -> rec$frames_gain_step
-  rec$sources_pos_init -> rec$sources_pos_step
-  rec$sources_signal_init -> rec$sources_signal_step
 
-  rec = get_source_receptor_distance(rec)
+get_number_of_source_frames <- function(model)
+{
+  return(nrow(model$sources$x))
+}
 
-  return(rec)
-
+get_number_of_simultaneous_sources <- function(model)
+{
+  return(ncol(model$sources$x))
 }
 
 
 
 
-
-
-parameters_to_beta <- function(f_rec, include_receptor_frame_Gain)
+get_number_of_sources <- function(model)
 {
-  n_receptors = length(f_rec$labels)
-  n_frames = length(f_rec$frames)
-#  count_receptors_par = (n_receptors - 1) * 4 - 1
-  count_receptors_par = (n_receptors ) * 4
+  return(length(model$sources$x))
+}
+
+
+
+model_to_beta <- function(f_rec,
+                          model)
+{
+  n_receptors = get_number_of_receptors(f_rec)
+  n_frames = get_number_of_frames(f_rec)
+  count_receptors_par = (n_receptors - 1) * 4 - 1
+
 
   count_frames_gain_par = 0
-  if (include_receptor_frame_Gain)
-    count_frames_gain_par = (nrow(f_rec$frames_gain_init$logG_diff) - 1) * n_receptors
-  count_sources_pos_par = length(f_rec$sources_pos_init$x) + length(f_rec$sources_pos_init$y)
-  count_sources_signal_par = length(f_rec$sources_signal_init$X)
-
-  counts = c(
-    receptors = count_receptors_par ,
-    frames_gain = count_frames_gain_par,
-    sources_pos = count_sources_pos_par,
-    sources_signal = count_sources_signal_par
-  )
+  include_frame_gain = 'frames_gain' %in% names(model)
+  if (include_frame_gain)
+    count_frames_gain_par = (nrow(model$frames_gain$logG_diff) - 1) * n_receptors
+  count_sources_pos_par = 2 * get_number_of_sources(model)
+  counts = c(receptors = count_receptors_par ,
+             frames_gain = count_frames_gain_par,
+             sources_pos = count_sources_pos_par)
 
   total = sum(counts)
   cumtotal = cumsum(counts)
 
-  beta = complex(total)
+  beta = numeric(total)
 
-  # beta[1:cumtotal['receptors']] =
-  #   c(
-  #     f_rec$receptors_step$x[3:n_receptors],
-  #     f_rec$receptors_step$y[2:n_receptors],
-  #     f_rec$receptors_step$logG[2:n_receptors],
-  #     f_rec$receptors_step$offset[2:n_receptors]
-  #   )
   beta[1:cumtotal['receptors']] =
     c(
-      f_rec$receptors_step$x[1:n_receptors],
-      f_rec$receptors_step$y[1:n_receptors],
-      f_rec$receptors_step$logG[1:n_receptors],
-      f_rec$receptors_step$offset[1:n_receptors]
+      model$receptors$x[3:n_receptors],
+      model$receptors$y[2:n_receptors],
+      model$receptors$logG[2:n_receptors],
+      model$receptors$offset[2:n_receptors]
     )
 
-  if (include_receptor_frame_Gain)
-    beta[(cumtotal[1] + 1):cumtotal[2]] = f_rec$frames_gain_step$logG_diff[2:n_frames,]
+  if (include_frame_gain)
+  {
+    beta[(cumtotal[1] + 1):cumtotal[2]] = model$frames_gain$logG_diff[2:n_frames,]
+    model$frames_gain$logG = apply(model$frames_gain$logG_diff, 2, cumsum)
 
-  beta[(cumtotal[2] + 1):cumtotal[3]] = c(f_rec$sources_pos_step$x,
-                                          f_rec$sources_pos_step$y)
 
-  beta[(cumtotal[3] + 1):cumtotal[4]] = f_rec$sources_signal_step$X
+  }
+  beta[(cumtotal[2] + 1):cumtotal[3]] = c(model$sources$x[seq_along(model$sources$x)],
+                                          model$sources$y[seq_along(model$sources$y)])
+
 
   return(beta)
 
 }
 
-get_source_receptor_distance <- function(f_rec)
+get_source_receptor_distance <- function(f_rec, model)
 {
-  n_receptors = length(f_rec$labels)
-  f_rec$distances = lapply(seq_len(n_receptors),
-                           function(i)
-                           {
-                             r_x = f_rec$receptors_step$x[i]
-                             r_y = f_rec$receptors_step$y[i]
-                             s_x = f_rec$sources_pos_step$x
-                             s_y = f_rec$sources_pos_step$y
-                             d = sqrt((r_x - s_x) ^ 2 + (r_y - s_y) ^ 2)
-                             return(d)
+  n_receptors = get_number_of_receptors(f_rec)
+  n_sim_sources = get_number_of_simultaneous_sources(model)
+  n_source_frames = get_number_of_source_frames(model)
 
-                           })
-
-  return(f_rec)
+  return(vapply(seq_len(n_source_frames),
+                function(i_frame)
+                  vapply(seq_len(n_sim_sources),
+                         function(i_source)
+                           vapply(seq_len(n_receptors),
+                                  function(i_receptor)
+                                  {
+                                    r_x = model$receptors$x[i_receptor]
+                                    r_y = model$receptors$y[i_receptor]
+                                    s_x = model$sources$x[i_frame, i_source]
+                                    s_y = model$sources$y[i_frame, i_source]
+                                    d = sqrt((r_x - s_x) ^ 2 + (r_y - s_y) ^ 2)
+                                    return(d)
+                                  }, numeric(1)),
+                         numeric(n_receptors)),
+                matrix(0, nrow = n_receptors, ncol = n_sim_sources)))
 }
 
 
 
-beta_to_parameters <-
-  function(beta, f_rec, include_receptor_frame_Gain)
+beta_to_model <- function(beta, f_rec,
+                          model)
+{
+  n_receptors = get_number_of_receptors(f_rec)
+  n_frames = get_number_of_frames(f_rec)
+  count_receptors_par = (n_receptors - 1) * 4 - 1
+
+
+  count_frames_gain_par = 0
+  include_frame_gain = 'frames_gain' %in% names(model)
+  if (include_frame_gain)
+    count_frames_gain_par = (nrow(model$frames_gain$logG_diff) - 1) * n_receptors
+  n_sources = get_number_of_sources(model)
+  counts = c(count_receptors_par,
+             count_frames_gain_par,
+             n_sources, n_sources)
+
+  total = sum(counts)
+  cumtotal = cumsum(counts)
+
+
+  cum_receptors = cumsum(c(n_receptors - 2, n_receptors - 1,
+                           n_receptors - 1, n_receptors - 1))
+
+
+  beta[1:cum_receptors[1]] ->
+    model$receptors$x[3:n_receptors]
+  beta[(cum_receptors[1] + 1):cum_receptors[2]] ->
+    model$receptors$y[2:n_receptors]
+  beta[(cum_receptors[2] + 1):cum_receptors[3]] ->
+    model$receptors$logG[2:n_receptors]
+  beta[(cum_receptors[3] + 1):cum_receptors[4]] ->
+    model$receptors$offset[2:n_receptors]
+
+
+  if (include_frame_gain)
   {
-    n_receptors = length(f_rec$labels)
-    n_frames = length(f_rec$frames)
-    # count_receptors_x = (n_receptors - 2)
-    # count_receptors_y = (n_receptors - 1)
-    # count_receptors_logG = (n_receptors - 1)
-    # count_receptors_offset = (n_receptors - 1)
+    beta[(cumtotal[1] + 1):cumtotal[2]] -> model$frames_gain$logG_diff[2:n_frames,]
+    model$frames_gain$logG = apply(model$frames_gain$logG_diff, 2, cumsum)
 
-    count_receptors_x = (n_receptors )
-    count_receptors_y = (n_receptors )
-    count_receptors_logG = (n_receptors )
-    count_receptors_offset = (n_receptors )
-
-    count_frames_gain_par = 0
-    if (include_receptor_frame_Gain)
-      count_frames_gain_par = (nrow(f_rec$frames_gain_init$logG_diff) - 1) * n_receptors
-    count_sources_pos_x = length(f_rec$sources_pos_init$x)
-    count_sources_pos_y = length(f_rec$sources_pos_init$y)
-    count_sources_signal_par = length(f_rec$sources_signal_init$X)
-
-    counts = c(
-      count_receptors_x,
-      count_receptors_y,
-      count_receptors_logG,
-      count_receptors_offset,
-      count_frames_gain_par,
-      count_sources_pos_x,
-      count_sources_pos_y,
-      count_sources_signal_par
-    )
-
-    total = sum(counts)
-    cumtotal = cumsum(counts)
-
-
-    # Re(beta[1:cumtotal[1]]) ->
-    #   f_rec$receptors_step$x[3:n_receptors]
-    # Re(beta[(cumtotal[1] + 1):cumtotal[2]]) ->
-    #   f_rec$receptors_step$y[2:n_receptors]
-    # Re(beta[(cumtotal[2] + 1):cumtotal[3]]) ->
-    #   f_rec$receptors_step$logG[2:n_receptors]
-    # Re(beta[(cumtotal[3] + 1):cumtotal[4]]) ->
-    #   f_rec$receptors_step$offset[2:n_receptors]
-
-    Re(beta[1:cumtotal[1]]) ->
-      f_rec$receptors_step$x[1:n_receptors]
-    Re(beta[(cumtotal[1] + 1):cumtotal[2]]) ->
-      f_rec$receptors_step$y[1:n_receptors]
-    Re(beta[(cumtotal[2] + 1):cumtotal[3]]) ->
-      f_rec$receptors_step$logG[1:n_receptors]
-    Re(beta[(cumtotal[3] + 1):cumtotal[4]]) ->
-      f_rec$receptors_step$offset[1:n_receptors]
-
-
-    if (include_receptor_frame_Gain)
-      Re(beta[(cumtotal[4] + 1):cumtotal[5]]) ->
-      f_rec$frames_gain_step$logG_diff[2:n_frames,]
-
-    # actualize logG for frames
-
-    f_rec$frames_gain_step$logG = apply(f_rec$frames_gain_step$logG_diff, 2, cumsum)
-
-
-
-    Re(beta[(cumtotal[5] + 1):cumtotal[6]]) ->
-      f_rec$sources_pos_step$x[seq_along(f_rec$sources_pos_step$x)]
-
-    Re(beta[(cumtotal[6] + 1):cumtotal[7]]) ->
-      f_rec$sources_pos_step$y[seq_along(f_rec$sources_pos_step$y)]
-
-    beta[(cumtotal[7] + 1):cumtotal[8]] ->
-      f_rec$sources_signal_step$X[seq_along(f_rec$sources_signal_step$X)]
-
-
-    # actualize distances
-
-    f_rec = get_source_receptor_distance(f_rec)
-
-    # remove amplitudes
-    return(f_rec)
   }
+  beta[(cumtotal[2] + 1):cumtotal[3]] -> model$sources$x[seq_along(model$sources$x)]
+  beta[(cumtotal[3] + 1):cumtotal[4]] -> model$sources$y[seq_along(model$sources$y)]
 
-parameters_to_xdata <- function(f_rec)
+
+  return(model)
+
+}
+
+
+
+
+model_to_xdata <- function(model)
 {
   return(
-    cbind(
-      seq_along(f_rec$sources_signal_step$i_frame),
-      f_rec$sources_signal_step$i_frame,
-      f_rec$sources_signal_step$i_freq,
-      f_rec$sources_signal_step$i_source,
-      f_rec$sources_signal_step$freq
+    t(cbind(
+      seq_along(model$receptor_signal$i_frame),
+      model$receptor_signal$i_frame,
+      model$receptor_signal$i_freq,
+      model$receptor_signal$i_source,
+      model$receptor_signal$freq
 
-    )
+    ))
   )
 
 }
 
-parameters_to_ydata <- function(f_rec)
+model_to_ydata <- function(model)
 {
-  return(f_rec$receptors_signal_init$Y)
+  return(model$receptor_signal$Y)
 }
 
 
 
-get_Amplitudes <- function(f_rec, xdata)
+
+
+
+get_Amplitudes <- function(f_rec, model, distances, xdata)
 {
-  n_receptors = length(f_rec$labels)
-  Amplitudes =
-    lapply(seq_len(n_receptors),
-           function(i)
-           {
-             dist = f_rec$distances[[i]]
-             d = dist[xdata[, 4], ]
-             w = 2 * pi * xdata[, 5]
-             logG = f_rec$receptors_step$logG[i] +
-               f_rec$frames_gain_step$logG[xdata[, 2], i]
-             offset = f_rec$receptors_step$offset[i]
-             A = exp(logG - 1i * w *
-                       (d / f_rec$velocity_of_sound + offset)) / d
-             return(A)
-           })
-  return(Amplitudes)
-}
+  n_receptors = get_number_of_receptors(f_rec)
+  n_sim_sources = get_number_of_simultaneous_sources(model)
+  n_source_frames_freq = ncol(xdata)
 
-get_number_of_sources <- function(f_rec)
-{
-  return (nrow(f_rec$sources_pos_step$x))
-}
-
-get_source_signal <- function(f_rec, xdata = NULL)
-{
-  if (is.null(xdata))
-    return(f_rec$sources_signal_step$X)
-  else
-    return(f_rec$sources_signal_step$X[xdata[, 1], ])
-}
-
-get_receptor_signal <- function(f_rec, xdata)
-{
-  return(f_rec$receptors_signal_init$Y[xdata[, 1], ])
-}
+  n_source_frames = get_number_of_source_frames(model)
 
 
-get_predicted_signal <- function(f_rec, xdata)
-{
-  A = get_Amplitudes(f_rec, xdata)
-  X = get_source_signal(f_rec, xdata)
-  n = nrow(X)
+  return(vapply(seq_len(n_source_frames_freq),
+                function(i_data)
+                  vapply(seq_len(n_sim_sources),
+                         function(i_source)
+                           vapply(seq_len(n_receptors),
+                                  function(i_receptor)
+                                  {
+                                    w = 2 * pi * xdata[5,i_data]
+                                    logG = model$receptors$logG[i_receptor] +
+                                      model$frames_gain$logG[xdata[2,i_data], i_receptor]
+                                    offset = model$receptors$offset[i_receptor]
+                                    d = distances[i_receptor, i_source, xdata[4,i_data]]
+                                    A = exp(logG - 1i * w *
+                                              (d / f_rec$velocity_of_sound + offset)) / d
+                                    return(A)
+                                  }, complex(1)),
+                         complex(n_receptors)),
+                matrix(0 + 0i, nrow = n_receptors, ncol = n_sim_sources)))
 
-  return(vapply(A, function(a)
-    rowSums(a * X), complex(n)))
 
 }
 
@@ -544,70 +529,155 @@ get_predicted_signal <- function(f_rec, xdata)
 
 
 
-predicted_signal <- function(f_rec, beta, xdata,include_receptor_frame_Gain )
+
+
+get_source_signal <- function(f_rec, model, A, Ainv, xdata, ydata)
 {
-  f_rec = beta_to_parameters(beta, f_rec,
-                             include_receptor_frame_Gain = include_receptor_frame_Gain )
-  Yfit = get_predicted_signal(f_rec, xdata)
-  return(Yfit)
 
 }
 
+get_receptor_signal <- function(model, xdata)
+{
+  return(model$receptor_signal$Y[,xdata[1, ] ])
+}
+
+
+
+
+
+get_inverse_AA <- function(A, lambda = 0.0)
+{
+  n = dim(A)[3]
+  n_sources = dim(A)[2]
+  return( vapply(seq_len(n), function(i)
+  {
+    AHA = Conj(t(A[,,i])) %*% A[,,i]
+    AHAla= AHA + diag(diag(AHA))*lambda
+    k=rcond(AHAla)
+    if (k <1e-7)
+    {
+       lambda = 1e-6
+       AHAla = AHA + diag(diag(AHA))*lambda
+
+    }
+    return(solve(AHAla))
+  },
+  matrix(complex(n_sources*n_sources),n_sources,n_sources)))
+}
+
+get_X <- function(AAinv,A, Y)
+{
+  n = dim(A)[3]
+  n_sources = dim(A)[2]
+  return( vapply(seq_len(n), function(i)
+  {
+     AAinv[,,i]%*%Conj(t(A[,,i])) %*% Y[,i]
+  },
+  complex(n_sources)))
+}
+
+get_predicted_Y<-function(A,X)
+{
+  n = dim(A)[3]
+  n_receptors = dim(A)[1]
+  return( vapply(seq_len(n), function(i)
+  {
+    A[,,i] %*% X[,i]
+  },
+  complex(n_receptors)))
+
+}
+
+
+get_predicted_signal <-
+  function(f_rec, model, xdata)
+  {
+    ydata= get_receptor_signal(model,xdata)
+    distances = get_source_receptor_distance(f_rec, model)
+    A = get_Amplitudes(f_rec, model, distances, xdata)
+
+    AAinv = get_inverse_AA(A)
+
+    X = get_X(AAinv,A,ydata)
+
+    Y = get_predicted_Y(A,X)
+    return(Y)
+
+
+  }
+
+
+
+
+
+predicted_signal <-
+  function(f_rec,
+           model,
+           beta,
+           xdata)
+  {
+    model = beta_to_model(beta, f_rec, model)
+    Yfit = get_predicted_signal(f_rec, model, xdata)
+    return(Yfit)
+
+  }
+
+
+gradient_of_predicted_signal <-
+  function(f_rec,
+           model,
+           beta,
+           xdata)
+  {
+    model = beta_to_model(beta, f_rec, model)
+    d_beta = d_f__d_beta(f_rec, model, xdata)
+    return(d_beta)
+
+  }
 
 
 
 
 global_optimization <- function(f_rec,
-                                n_sources = NULL,
-                                x_min = NULL,
-                                x_max = NULL,
-                                y_min = NULL,
-                                y_max = NULL,
-                                freq_limits = rbind(c(0, 500),
-                                                    c(500, 4000),
-                                                    c(4000, 10000)),
-                                include_receptor_frame_gain = F,
-                                number_of_chunks = 1000,
+                                model,
+                                number_of_chunks = 10,
                                 maxiter = 100,
                                 alpha = 0.1,
-                                eps= 1e-16,
+                                eps = 1e-16,
                                 eps_J = 1e-8)
 {
   predicted  <-
     function(beta, xdata) {
-      return(predicted_signal(f_rec, beta, xdata,include_receptor_frame_Gain = include_receptor_frame_gain))
+      return(predicted_signal(f_rec, model, beta, xdata))
     }
 
-  gradient <-
-    function(beta, xdata, ydata) {
-      return(d_f__d_beta(
-        f_rec = f_rec,
-        beta = beta,
-        xdata = xdata,
-        ydata = ydata,
-        include_receptor_frame_Gain = include_receptor_frame_gain
-      ))
+  Jacobian <-
+    function(beta, xdata) {
+      return(
+        d_Y__d_beta(
+          f_rec = f_rec,
+          model,
+          beta = beta,
+          xdata = xdata)
+      )
     }
 
-  f_rec = init_parameters(f_rec, n_sources, x_min, x_max, y_min, y_max, freq_limits)
 
-  beta_init = parameters_to_beta(f_rec,
-                                 include_receptor_frame_Gain = include_receptor_frame_gain)
-  xdata = parameters_to_xdata(f_rec)
-  ydata = parameters_to_ydata(f_rec)
+  beta_init = model_to_beta(f_rec, model = model)
+  xdata = model_to_xdata(model = model)
+  ydata = model_to_ydata(model)
 
-  opt = nlsqrsgd(
+  opt = slm(
     f = predicted,
+
     x0 = beta_init,
     xdata = xdata,
     ydata = ydata,
     number_of_chunks = number_of_chunks,
-    is_complex = T,
     maxiter = maxiter,
-    gradient =  gradient,
-    alpha = alpha,
+    Jacobian = Jacobian,
     eps = eps,
-    eps_J = eps_J
+    Y_beta
   )
   opt$sqr_diff = opt$sqrsum_tot - opt$sqrsum_prev
   opt$xdata = xdata
@@ -615,9 +685,11 @@ global_optimization <- function(f_rec,
   opt$sqr_ydata = sum(Conj(ydata) * ydata)
   opt$sqr_diff_tot =  opt$sqrsum_tot - opt$sqr_ydata
   f_rec$opt = opt
-  f_rec = beta_to_parameters(opt$xt, f_rec, include_receptor_frame_Gain = include_receptor_frame_gain)
-  f_rec$predicted_y = predicted(opt$xt, xdata)
-
+  #model_opt = beta_to_model(opt$xt, f_rec,model)
+  #f_rec$predicted_y = predicted(opt$xt, xdata)
+  #f_rec$model_opt=model_opt
   return(f_rec)
 
 }
+
+

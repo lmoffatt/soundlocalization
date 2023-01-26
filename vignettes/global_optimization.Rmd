@@ -97,13 +97,13 @@ a_fake <- align_recordings(rec_fake)
 
 
 ```{r}
-f_fake <- frame_recordings(a_fake, i_start_diff = 120*rec$fs, nsamples = 2048, window_size_in_seconds = 512/a_fake$fs)
-init_parameters(f_fake) -> f_fake
+f_fake <- frame_recordings(a_fake, i_start_diff = 120*rec$fs, nsamples = 2048, window_size_in_seconds = 1024/a_fake$fs)
 ```
 
 
 ```{r}
-opt_fake = global_optimization(f_fake)
+model=init_model(f_fake,n_sources = 2, include_frame_gain = T, freq_limits = rbind(c(1,5000)))
+opt_fake = global_optimization(f_fake,model)
 
 ```
 
@@ -141,6 +141,7 @@ ss
 ```
 
 ```{r}
-opt_fake = global_optimization(f_fake)
+model = init_model(f_fake, include_frame_gain = F)
+opt_fake = global_optimization(f_fake, model)
 ```
 

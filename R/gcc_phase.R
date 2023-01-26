@@ -257,7 +257,7 @@ gcc_phase_data_for_plot_per_frame <-
 
         lag_max_f = lag_max / factor
 
-        n_receptors = length(gcc$labels)
+        n_receptors = get_number_of_receptors(gcc)
 
         lags_f = round(lags * gcc$fs[1] / factor) * factor / gcc$fs[1]
 
@@ -359,7 +359,7 @@ gcc_phase_data_for_plot <-
 
         lag_max_f = lag_max / factor
 
-        n_receptors = length(gcc$labels)
+        n_receptors = get_number_of_receptors(gcc)
 
         lags_f = round(lags * gcc$fs[1] / factor) * factor / gcc$fs[1]
 
@@ -563,7 +563,7 @@ gphase_filter_peaks_data_per_frame <- function(rec,
 
   frame$lags = ((-lag_max):(lag_max - 1)) / rec$fs[1]
 
-  n_receptors = length(rec$labels)
+  n_receptors = get_number_of_receptors(rec)
   i_lags = c((-lag_max + 1):0 + nsamples, 1:(lag_max  ))
   frame$gcc_peaks_data =
     lapply(1:(n_receptors - 1),

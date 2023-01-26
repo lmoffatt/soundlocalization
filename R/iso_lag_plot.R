@@ -17,7 +17,7 @@ iso_lag_data <-
     dp = full_join(data.frame(x = x),
                    data.frame(y = y),by=character())
 
-    n_receptors = length(rec$labels)
+    n_receptors = get_number_of_receptors(rec)
     d_1 = ((dp$x - rec$x[1]) ^ 2 + (dp$y - rec$y[1]) ^ 2) ^ 0.5
 
     d = Reduce(function (p, i)

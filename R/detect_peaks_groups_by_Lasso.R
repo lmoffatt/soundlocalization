@@ -48,7 +48,7 @@ gcc_phase_data_for_lasso_source_reconstruction_plot <-
 
 
     n_1_lags = length(unique(lags_1f))
-    n_receptors = length(gcc$labels)
+    n_receptors = get_number_of_receptors(gcc)
 
 
 

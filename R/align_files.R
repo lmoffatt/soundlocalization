@@ -45,7 +45,7 @@ align_recordings <- function(recordings, lag_window_in_meters = NULL)
     recordings <- obtain_shared_peaks(recordings,
                                       lag_window_in_meters = lag_window_in_meters)
 
-  n_receptors = length(recordings$labels)
+  n_receptors = get_number_of_receptors(recordings)
   peak_start = recordings$shared_peaks$d[1, paste0("lag_1_", c(2:n_receptors))] *
     recordings$fs
 

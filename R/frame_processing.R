@@ -151,3 +151,9 @@ frame_recordings <- function(rec,
     )
   )
 }
+
+
+get_number_of_frames <- function(rec)
+{
+  return(length(rec$frames))
+}

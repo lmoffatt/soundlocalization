@@ -1,5 +1,10 @@
 
 
+
+
+
+
+
 geo_distance <- function(x, y)
 {
   geosphere::distGeo(p1 = c(x["lon"], x["lat"]), p2 = c(y["lon"], y["lat"]))
@@ -37,75 +42,52 @@ geo_to_local2 <- function(origin, x_axis, points)
        y = dp %*% dy)
 
 }
-geo_to_local <- function(points,origin=NULL, x_axis=NULL)
+
+
+geo_to_local <- function(lat,lon,origin=NULL)
 {
   if (is.null(origin))
-    origin=points[1,]
-  if (is.null(x_axis))
-    x_axis=points[2,]
+    origin=c(lat=mean(lat),lon=mean(lon))
 
 
+  max_lat = 1e-3
 
-  dy = c(geosphere::distGeo(c(origin["lon"], origin["lat"]),
-                            c(origin["lon"], x_axis["lat"])),
-         geosphere::distGeo(c(origin["lon"], origin["lat"]),
-                            c(x_axis["lon"], origin["lat"])))
+  max_lon = 1e-3
 
-  dy = dy / norm(dy, type = "2")
-  dx = c(-dy[2], dy[1])
   dlat = geosphere::distGeo(c(origin["lon"], origin["lat"]),
-                            c(origin["lon"], origin["lat"] + 1e-3))/1e-3
+                            c(origin["lon"], origin["lat"] + max_lat))/max_lat
 
   dlon = geosphere::distGeo(c(origin["lon"], origin["lat"]),
-                            c(origin["lon"] + 1e-3, origin["lat"]))/1e-3
+                            c(origin["lon"] + max_lon, origin["lat"]))/max_lon
 
 
+  x = (lon - origin["lon"])*dlon
+  y = (lat - origin["lat"])*dlat
 
-  dp = t(vapply(1:nrow(points),
-                function (i)
-                  c((points[i,"lat"]- origin["lat"])*dlat,
-                    (points[i,"lon"]-origin["lon"])*dlon)
-                  ,
-                numeric(2)))
-    cbind(x = dp %*% dx,
-        y = dp %*% dy)
+  return(list(origin = origin, x = x, y = y))
 
-}
+  }
 
 
-local_to_geo <- function(origin, x_axis, x, y)
+local_to_geo <- function(origin,x,y)
 {
-  dx = c(geosphere::distGeo(c(origin["lon"], origin["lat"]),
-                            c(origin["lon"], x_axis["lat"])),
-         geosphere::distGeo(c(origin["lon"], origin["lat"]),
-                            c(x_axis["lon"], origin["lat"])))
-
-  dx = dx / norm(dx, type = "2")
-  dy = c(-dx[2], dx[1])
-  dy = dy / norm(dy, type = "2")
-
-  d=rbind(dx,dy)
-
-  dx=d[,1]
-  dy=d[,2]
 
 
+  max_lat = 1e-3
 
-  p = matrix(c(x, y), nrow = length(x), ncol = 2)
+  max_lon = 1e-3
+
+  dlat = geosphere::distGeo(c(origin["lon"], origin["lat"]),
+                            c(origin["lon"], origin["lat"] + max_lat))/max_lat
+
+  dlon = geosphere::distGeo(c(origin["lon"], origin["lat"]),
+                            c(origin["lon"] + max_lon, origin["lat"]))/max_lon
 
 
+  lon =   x/dlon + origin["lon"]
+  lat = y/dlat +  origin["lat"]
 
-  dlat = 1e-3 / geosphere::distGeo(c(origin["lon"], origin["lat"]),
-                                   c(origin["lon"], origin["lat"] + 1e-3))
-
-  dlon = 1e-3 / geosphere::distGeo(c(origin["lon"], origin["lat"]),
-                                   c(origin["lon"] + 1e-3, origin["lat"]))
-
-
-  cbind(lat = p %*% dx * dlat + origin["lat"],
-                  lon = p %*% dy * dlon + origin["lon"])->c
-  colnames(c)<-c("lat","lon")
-  return(c)
+  return(list(lat = lat, lon = lon))
 
 }
 
