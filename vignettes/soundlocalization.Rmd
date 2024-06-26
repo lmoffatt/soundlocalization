@@ -56,7 +56,7 @@ session <- build_session(label = "detras_de_la_casa",receptors = labels,latitude
 Lets see the organization of rec
 
 ```{r}
-str(rec)
+str(session)
 ```
 
 Now the idea of soundlocalization is to locate the time, frequency and point of origin of the sounds of a recording. 

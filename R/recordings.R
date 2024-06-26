@@ -15,6 +15,22 @@ set_receptor <- function (label,
   )
 }
 
+#' Title
+#'
+#' @param label
+#' @param x_pos
+#' @param y_pos
+#' @param error
+#' @param t_recordings
+#' @param t_starts
+#' @param t_ends
+#' @param min_freq
+#' @param max_freq
+#'
+#' @return
+#' @export
+#'
+#' @examples
 set_sources <- function(label,
                         x_pos,
                         y_pos,

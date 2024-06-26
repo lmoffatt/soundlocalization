@@ -2,6 +2,20 @@
 
 
 
+#' Title
+#'
+#' @param label
+#' @param receptors
+#' @param latitudes
+#' @param longitudes
+#' @param elevations
+#' @param time_of_recording
+#' @param files
+#'
+#' @return
+#' @export
+#'
+#' @examples
 build_session <-
   function(label,
            receptors,
