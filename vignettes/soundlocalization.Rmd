@@ -43,15 +43,13 @@ files <- list(
 labels = c("Andrea", "Candela", "Joaco", "Julieta","Luciano")
 lat= c(-35.100313,-35.099890,-35.1003703,-35.099870,-35.100110)
 lon= c(-58.304676,-58.304550,-58.3041342,-58.304039,-58.304306)
-time_of_recording = ymd_hm("2022-12-25 17:35", tz = "America/Buenos_Aires")
+elevations =c(1.4,1.42,1.48,1.4,1.54)
+time_of_recording = lubridate::ymd_hm("20221225 1735")
 ```
 
 
 ```{r}
-rec<-recordings(files = files,
-                       labels = labels,
-                       geo_locations = geo_locations, 
-                       time_of_recording = time_of_recording)
+session <- build_session(label = "detras_de_la_casa",receptors = labels,latitudes = lat,longitudes = lon,elevations = elevations,time_of_recording = time_of_recording, files = files)
 
 ```
 

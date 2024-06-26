@@ -1,29 +1,5 @@
 
 
-simulate_harmonic_signal<-function(fs,nsamples=NULL,trace_duration=NULL,
-                          fundamental_freq,harmonic_amplitudes, tstart, t_end, exp=F
-                          )
-{
-   if(is.null(nsamples))
-     nsamples=ceiling(trace_duration*fs)
-  t=0:(nsamples-1)/fs
-
-  A=harmonic_amplitudes
-  w=1:length(harmonic_amplitudes)*fundamental_freq*2*pi
-
-  if (exp)
-     y=vapply(X = t,FUN = function (x) {if ((x>tstart) )
-           sum(A*exp(-(x-tstart)/(t_end-tstart)/5)*sin(w*(x-tstart)))
-           else
-             0},0 )
-  else
-    y=vapply(X = t,FUN = function (x) {if ((x>tstart)& (x<t_end) )
-      sum(A*sin(w*(x-tstart)))
-      else
-        0},0 )
-
-  return (y)
-}
 
 
 

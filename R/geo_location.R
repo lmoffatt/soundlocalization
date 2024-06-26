@@ -1,49 +1,16 @@
 
-
-
-
-
-
-
-geo_distance <- function(x, y)
-{
-  geosphere::distGeo(p1 = c(x["lon"], x["lat"]), p2 = c(y["lon"], y["lat"]))
-}
-
-
-geo_to_local2 <- function(origin, x_axis, points)
-{
-  dp = t(vapply(1:nrow(points),
-              function (i)
-                c(lat=geosphere::distGeo(
-                  c(origin["lon"], origin["lat"]),
-                  c(origin["lon"], points[i,"lat"])
-                ),
-                lon=geosphere::distGeo(
-                  c(origin["lon"], origin["lat"]),
-                  c(points[i,"lon"], origin["lat"])
-                )),
-              numeric(2)))
-
-  print(dp)
-
-  dx = c(geosphere::distGeo(c(origin["lon"], origin["lat"]),
-                            c(origin["lon"], x_axis["lat"])),
-         geosphere::distGeo(c(origin["lon"], origin["lat"]),
-                            c(x_axis["lon"], origin["lat"])))
-
-  dx = dx / norm(dx, type = "2")
-  dy = c(-dx[2], dx[1])
-  dy = dy / norm(dy, type = "2")
-
-  print(dx%*%dy)
-
-  cbind(x = dp %*% dx,
-       y = dp %*% dy)
-
-}
-
-
+#' geolocalization to local distance (in meters)
+#'
+#' @param lat latitude
+#' @param lon longitude
+#' @param origin latitude and longitude of the (0,0) point
+#'
+#' @return  a list (x,y,origin) where x is the distance to East or West of the origin
+#'                                    y is the distance to the North or South of the origin
+#'                                    origin is a vector with the latitude and longitude of the origin
+#' @export
+#'
+#' @examples
 geo_to_local <- function(lat,lon,origin=NULL)
 {
   if (is.null(origin))
@@ -69,6 +36,16 @@ geo_to_local <- function(lat,lon,origin=NULL)
   }
 
 
+#' transform local coordinates to the equivalent geolocation, given the geolocation of the origin
+#'
+#' @param origin a vector containing the latitude and longitude of the origin
+#' @param x  distance from the origin in the W-E axis
+#' @param y  distance from the origin in the S-N axis
+#'
+#' @return  the latitude and longitudes of the coordinates also the origin used
+#' @export
+#'
+#' @examples
 local_to_geo <- function(origin,x,y)
 {
 
@@ -87,23 +64,17 @@ local_to_geo <- function(origin,x,y)
   lon =   x/dlon + origin["lon"]
   lat = y/dlat +  origin["lat"]
 
-  return(list(lat = lat, lon = lon))
+  return(list(lat = lat, lon = lon, origin = origin))
 
 }
 
 
 
 
-#' Title
-#'
-#' @param lat
-#' @param lon
-#'
-#' @return
-#' @export
-#'
-#' @examples
-geo_coordinates <- function(lat, lon,error=4)
+obtain_receptor_position <- function(session)
 {
-  c(lon = lon, lat = lat, error=error)
+  session$position = geo_to_local(lat = session$lat,lon = session$lon)
+  session$position$z = session$elevations
+  return(session)
 }
+
